@@ -22,3 +22,19 @@ XGBoost it is, because it's a default choice. Lets use it to create an MVP.
 
 **Result:** Dev MAE 305.9s (grade.py 50k sample). Down from 357.2s baseline — 51s improvement. Now on par with the 10-line zone-pair lookup (~300s), with XGBoost on top adding time-of-day corrections.
 
+### Experiment 2 — Drop passenger_count
+
+**Hypothesis:** Passenger count doesn't affect road speed or route. It's likely noise or at best a weak proxy for trip type (e.g. large groups → airport). Removing it should have neutral-to-positive effect.
+
+**Approach:** Remove `passenger_count` from the feature list entirely.
+
+**Result:** Dev MAE 305.9s → 304.4s. Marginal improvement — confirmed as noise.
+
+**Note:** Could revisit `passenger_count` as a proxy for trip type (airport/hotel runs tend to have more passengers and longer durations). Worth trying again if we add explicit airport zone flags.
+
+### Experiment 3 — Haversine distance between zone centroids (planned)
+
+**Hypothesis:** The model currently has no concept of physical distance between zones. Straight-line distance between zone centroids is the strongest signal we're missing — closer zones = shorter trips.
+
+**Approach:** Derive zone centroid lat/lon from the official NYC TLC shapefile (authoritative source, not a third-party CSV). Add haversine distance as a feature. Fold centroid extraction into `download_data.py`.
+

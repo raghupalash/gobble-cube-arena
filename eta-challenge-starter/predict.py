@@ -26,7 +26,7 @@ with open(_ZONE_PAIR_MEANS_PATH, "rb") as _f:
     _GLOBAL_MEAN: float = _zp["global_mean"]
 
 # Feature order must match baseline.py:
-#   pickup_zone, dropoff_zone, hour, dow, month, passenger_count, zone_pair_mean
+#   pickup_zone, dropoff_zone, hour, dow, month, zone_pair_mean
 
 
 def predict(request: dict) -> float:
@@ -50,7 +50,6 @@ def predict(request: dict) -> float:
             ts.hour,
             ts.weekday(),
             ts.month,
-            int(request["passenger_count"]),
             zone_pair_mean,
         ]],
         dtype=np.float32,

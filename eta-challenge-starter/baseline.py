@@ -29,7 +29,7 @@ DATA_DIR = Path(__file__).parent / "data"
 MODEL_PATH = Path(__file__).parent / "model.pkl"
 ZONE_PAIR_MEANS_PATH = Path(__file__).parent / "zone_pair_means.pkl"
 
-FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "passenger_count", "zone_pair_mean"]
+FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "zone_pair_mean"]
 
 
 def build_zone_pair_means(train: pd.DataFrame) -> dict:
@@ -49,7 +49,6 @@ def engineer_features(df: pd.DataFrame, zone_pair_means: dict, global_mean: floa
         "hour":            ts.dt.hour.astype("int8"),
         "dow":             ts.dt.dayofweek.astype("int8"),
         "month":           ts.dt.month.astype("int8"),
-        "passenger_count": df["passenger_count"].astype("int8"),
         "zone_pair_mean":  pair_mean,
     })[FEATURES]
 
