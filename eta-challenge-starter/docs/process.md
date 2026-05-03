@@ -24,6 +24,7 @@ All runs below use 1M sample unless noted in the Full Training table.
 | Exp 5: zone_pair_mean → trimmed mean (10%) | 302.3s | -0.4s | 300.4s | -0.5s |
 | Exp 6: + zone_pair_hour_mean (branch: exp/zone-pair-hour-mean) | 306.3s | +4.0s | 305.2s | +4.8s |
 | Exp 7: + zone_pair_dow_mean (branch: exp/zone-pair-dow-mean) | 304.7s | +2.4s | 303.0s | +2.6s |
+| Exp 8: + is_rush_hour, is_weekend, is_airport flags (branch: exp/flags) | 302.8s | +0.5s | 300.9s | +0.5s |
 
 ## Full Training Runs (37M rows)
 
@@ -93,6 +94,20 @@ All runs below use 1M sample unless noted in the Full Training table.
 **Next step if revisiting:** add minimum count threshold (e.g. skip bucket if < 30 trips, fall back to zone_pair_mean). Will be more effective on full 37M data (~34 trips/bucket average).
 
 ### Experiment 7 — Zone-Pair × DOW mean (branch: exp/zone-pair-dow-mean)
+
+**Hypothesis:** Reducing from 24 hour-buckets to 7 day-of-week buckets reduces sparsity (55k buckets vs 108k on 1M rows). DOW captures weekend vs weekday variation per route without the extreme sparsity that killed exp6.
+
+**Approach:** Replace `zone_pair_hour_mean` with `zone_pair_dow_mean`: trimmed mean (5%) per (pickup, dropoff, dow) with fallback to `zone_pair_mean`. No minimum count guard.
+
+**Result:** grade.py 302.3s → 304.7s (+2.4s), full dev 300.4s → 303.0s (+2.6s). **Worse.** Even 7 buckets is too sparse on 1M sample. DOW signal already captured by raw `dow` feature. Branch not merged.
+
+### Experiment 8 — Binary flags: rush hour, weekend, airport (branch: exp/flags)
+
+**Hypothesis:** Explicit binary flags for structurally different trip types (rush hour, weekend, airport) give XGBoost cleaner splits than inferring these from raw hour/dow integers.
+
+**Approach:** Add three features: `is_rush_hour` (7–9am or 4–7pm on weekdays), `is_weekend` (dow ≥ 5), `is_airport` (pickup or dropoff in EWR=1, JFK=132, LGA=138).
+
+**Result:** grade.py 302.3s → 302.8s (+0.5s), full dev 300.4s → 300.9s (+0.5s). **Worse.** XGBoost already learns these patterns via splits on `hour` and `dow`. Explicit flags add no new information. Branch not merged.
 
 **Hypothesis:** Reducing from 24 hour-buckets to 7 day-of-week buckets reduces sparsity (55k buckets vs 108k on 1M rows). DOW captures weekend vs weekday variation per route without the extreme sparsity that killed exp6.
 
