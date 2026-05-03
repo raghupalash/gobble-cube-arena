@@ -54,12 +54,7 @@ def build_zone_pair_hour_means(train: pd.DataFrame) -> dict:
     train = train.copy()
     train["hour"] = ts.dt.hour
 
-    def trimmed_mean(x: pd.Series) -> float:
-        lo, hi = x.quantile(0.05), x.quantile(0.95)
-        trimmed = x[(x >= lo) & (x <= hi)]
-        return trimmed.mean() if len(trimmed) else x.mean()
-
-    means = train.groupby(["pickup_zone", "dropoff_zone", "hour"])["duration_seconds"].apply(trimmed_mean)
+    means = train.groupby(["pickup_zone", "dropoff_zone", "hour"])["duration_seconds"].median()
     return means.to_dict()
 
 

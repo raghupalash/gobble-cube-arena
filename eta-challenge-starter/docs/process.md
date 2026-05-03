@@ -22,7 +22,10 @@ All runs below use 1M sample unless noted in the Full Training table.
 | Exp 3: + haversine_km | 303.4s | -1.0s | — | — |
 | Exp 4: zone_pair_mean → median | 302.7s | -0.7s | 300.9s | — |
 | Exp 5: zone_pair_mean → trimmed mean (10%) | 302.3s | -0.4s | 300.4s | -0.5s |
-| Exp 6: + zone_pair_hour_mean (branch: exp/zone-pair-hour-mean) | 306.3s | +4.0s | 305.2s | +4.8s |
+| Exp 6a: + zone_pair_hour_mean, trimmed mean 10% | 306.3s | +4.0s | 305.2s | +4.8s |
+| Exp 6b: zone_pair_hour_mean → trimmed mean 5% | 306.6s | +0.3s | 305.3s | +0.1s |
+| Exp 6c: zone_pair_hour_mean → mean | 308.2s | +1.6s | 306.9s | +1.6s |
+| Exp 6d: zone_pair_hour_mean → median | 305.8s | -2.4s | 304.6s | -2.3s |
 
 ## Full Training Runs (37M rows)
 
