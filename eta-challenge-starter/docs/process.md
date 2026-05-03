@@ -25,9 +25,11 @@ All runs below use 1M sample unless noted in the Full Training table.
 
 ## Full Training Runs (37M rows)
 
+*See docs/archive.md for previous unreliable runs (parallel execution caused model.pkl conflicts).*
+
 | Features at time of run | grade.py MAE | full dev MAE | Training time |
 |---|---|---|---|
-| Exp 1+2+3 (zone_pair_mean mean, no passenger_count, haversine_km) | 292.9s | 291.4s | ~17.5 min |
+| — | — | — | — |
 
 ---
 
