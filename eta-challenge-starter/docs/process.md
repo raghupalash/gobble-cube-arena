@@ -9,6 +9,17 @@ XGBoost it is, because it's a default choice. Lets use it to create an MVP.
 
 ---
 
+## Scoreboard
+
+| Experiment | Dev MAE | Delta |
+|---|---|---|
+| Baseline (6 features) | 357.2s | — |
+| Exp 1: + zone_pair_mean | 305.9s | -51.3s |
+| Exp 2: - passenger_count | 304.4s | -1.5s |
+| Exp 3: + haversine_km | 303.4s | -1.0s |
+
+---
+
 ## Experiment Log
 
 ### Experiment 1 — Zone-Pair Mean as a Feature
