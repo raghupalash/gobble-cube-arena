@@ -21,6 +21,7 @@ XGBoost it is, because it's a default choice. Lets use it to create an MVP.
 | Exp 3: + haversine_km | 303.4s | -1.0s | — | — |
 | Exp 4: zone_pair_mean → median | 302.7s | -0.7s | 300.9s | — |
 | Exp 5: zone_pair_mean → trimmed mean (10%) | 302.3s | -0.4s | 300.4s | -0.5s |
+| Exp 6: full 37M training data | 292.9s | -9.4s | 291.4s | -9.0s |
 
 ---
 
