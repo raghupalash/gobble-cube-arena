@@ -22,6 +22,7 @@ All runs below use 1M sample unless noted in the Full Training table.
 | Exp 3: + haversine_km | 303.4s | -1.0s | — | — |
 | Exp 4: zone_pair_mean → median | 302.7s | -0.7s | 300.9s | — |
 | Exp 5: zone_pair_mean → trimmed mean (10%) | 302.3s | -0.4s | 300.4s | -0.5s |
+| Exp 6: + zone_pair_hour_mean (branch: exp/zone-pair-hour-mean) | 306.3s | +4.0s | 305.2s | +4.8s |
 
 ## Full Training Runs (37M rows)
 
@@ -79,4 +80,14 @@ All runs below use 1M sample unless noted in the Full Training table.
 **Approach:** Replace median with a custom `trimmed_mean` function using 10th/90th percentile cutoffs per group.
 
 **Result:** grade.py MAE 302.7s → 302.3s, full dev 300.9s → 300.4s. Consistent improvement over median. Trimmed mean beats both mean and median for this distribution.
+
+### Experiment 6 — Zone-Pair × Hour mean (branch: exp/zone-pair-hour-mean)
+
+**Hypothesis:** zone_pair_mean is static across all hours. A (pickup, dropoff, hour) bucket captures time-of-day variation for the same route.
+
+**Approach:** Add `zone_pair_hour_mean` as an 8th feature. Trimmed mean per (pair, hour) bucket with fallback to zone_pair_mean.
+
+**Result:** grade.py 302.3s → 306.3s (+4.0s), full dev 300.4s → 305.2s (+4.8s). **Worse.** Root cause: 108k buckets on 1M rows = ~9 trips/bucket on average. Too sparse for reliable trimmed mean estimates. No minimum count guard — noisy buckets hurt more than they help. Branch not merged.
+
+**Next step if revisiting:** add minimum count threshold (e.g. skip bucket if < 30 trips, fall back to zone_pair_mean). Will be more effective on full 37M data (~34 trips/bucket average).
 
