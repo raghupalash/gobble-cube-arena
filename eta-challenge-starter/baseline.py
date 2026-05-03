@@ -49,7 +49,13 @@ def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def build_zone_pair_means(train: pd.DataFrame) -> dict:
-    means = train.groupby(["pickup_zone", "dropoff_zone"])["duration_seconds"].median()
+    # trimmed mean: drop bottom and top 10% per pair, average the middle 80%
+    def trimmed_mean(x: pd.Series) -> float:
+        lo, hi = x.quantile(0.10), x.quantile(0.90)
+        trimmed = x[(x >= lo) & (x <= hi)]
+        return trimmed.mean() if len(trimmed) else x.mean()
+
+    means = train.groupby(["pickup_zone", "dropoff_zone"])["duration_seconds"].apply(trimmed_mean)
     return means.to_dict()
 
 

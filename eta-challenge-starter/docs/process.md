@@ -20,6 +20,7 @@ XGBoost it is, because it's a default choice. Lets use it to create an MVP.
 | Exp 2: - passenger_count | 304.4s | -1.5s | — | — |
 | Exp 3: + haversine_km | 303.4s | -1.0s | — | — |
 | Exp 4: zone_pair_mean → median | 302.7s | -0.7s | 300.9s | — |
+| Exp 5: zone_pair_mean → trimmed mean (10%) | 302.3s | -0.4s | 300.4s | -0.5s |
 
 ---
 
@@ -61,4 +62,12 @@ XGBoost it is, because it's a default choice. Lets use it to create an MVP.
 **Approach:** Replace `.mean()` with `.median()` in `build_zone_pair_means()`. One-line change.
 
 **Result:** Dev MAE 303.4s → 302.7s. Small improvement confirming right-skew effect. Training time increased 7s → 26s (median is slower to compute). Worth keeping.
+
+### Experiment 5 — zone_pair_mean → trimmed mean (10%)
+
+**Hypothesis:** Median discards too much information — it only looks at the middle value. Trimmed mean (drop bottom/top 10% per pair, average the rest) keeps more of the distribution while still ignoring extreme outliers.
+
+**Approach:** Replace median with a custom `trimmed_mean` function using 10th/90th percentile cutoffs per group.
+
+**Result:** grade.py MAE 302.7s → 302.3s, full dev 300.9s → 300.4s. Consistent improvement over median. Trimmed mean beats both mean and median for this distribution.
 
