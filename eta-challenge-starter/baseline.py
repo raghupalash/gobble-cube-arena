@@ -31,7 +31,9 @@ MODEL_PATH = Path(__file__).parent / "model.pkl"
 ZONE_PAIR_MEANS_PATH = Path(__file__).parent / "zone_pair_means.pkl"
 ZONE_CENTROIDS_PATH = DATA_DIR / "zone_centroids.csv"
 
-FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "zone_pair_mean", "haversine_km"]
+FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "zone_pair_mean", "haversine_km", "is_rush_hour", "is_weekend", "is_airport"]
+
+_AIRPORT_ZONES = {1, 132, 138}  # EWR, JFK, LGA
 
 _R = 6371.0  # Earth radius in km
 
@@ -76,14 +78,28 @@ def engineer_features(
         if pu in centroids and do in centroids else 0.0
         for pu, do in zip(df["pickup_zone"].astype(int), df["dropoff_zone"].astype(int))
     ]
+    hour = ts.dt.hour
+    dow = ts.dt.dayofweek
+    is_rush_hour = (
+        ((hour >= 7) & (hour < 9) & (dow < 5)) |
+        ((hour >= 16) & (hour < 19) & (dow < 5))
+    ).astype("int8")
+    is_weekend = (dow >= 5).astype("int8")
+    is_airport = (
+        df["pickup_zone"].astype(int).isin(_AIRPORT_ZONES) |
+        df["dropoff_zone"].astype(int).isin(_AIRPORT_ZONES)
+    ).astype("int8")
     return pd.DataFrame({
         "pickup_zone":    df["pickup_zone"].astype("int32"),
         "dropoff_zone":   df["dropoff_zone"].astype("int32"),
-        "hour":           ts.dt.hour.astype("int8"),
-        "dow":            ts.dt.dayofweek.astype("int8"),
+        "hour":           hour.astype("int8"),
+        "dow":            dow.astype("int8"),
         "month":          ts.dt.month.astype("int8"),
         "zone_pair_mean": pair_mean,
         "haversine_km":   hav,
+        "is_rush_hour":   is_rush_hour,
+        "is_weekend":     is_weekend,
+        "is_airport":     is_airport,
     })[FEATURES]
 
 
