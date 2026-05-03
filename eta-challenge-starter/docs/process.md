@@ -17,6 +17,7 @@ XGBoost it is, because it's a default choice. Lets use it to create an MVP.
 | Exp 1: + zone_pair_mean | 305.9s | -51.3s |
 | Exp 2: - passenger_count | 304.4s | -1.5s |
 | Exp 3: + haversine_km | 303.4s | -1.0s |
+| Exp 4: zone_pair_mean → median | 302.7s | -0.7s |
 
 ---
 
@@ -50,4 +51,12 @@ XGBoost it is, because it's a default choice. Lets use it to create an MVP.
 **Approach:** Derive zone centroid lat/lon from the official NYC TLC shapefile (authoritative source, not a third-party CSV). Add haversine distance as a feature. Fold centroid extraction into `download_data.py`.
 
 **Result:** Dev MAE 304.4s → 303.4s. Marginal gain — `zone_pair_mean` already captures most of the distance signal implicitly. Haversine adds value for unseen zone pairs (fallback path) and gives the model an explicit continuous distance signal.
+
+### Experiment 4 — zone_pair_mean → median
+
+**Hypothesis:** Mean is pulled by outliers (e.g. stuck-in-traffic trips). Trip durations are right-skewed so median should be more robust and representative.
+
+**Approach:** Replace `.mean()` with `.median()` in `build_zone_pair_means()`. One-line change.
+
+**Result:** Dev MAE 303.4s → 302.7s. Small improvement confirming right-skew effect. Training time increased 7s → 26s (median is slower to compute). Worth keeping.
 

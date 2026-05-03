@@ -49,7 +49,7 @@ def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def build_zone_pair_means(train: pd.DataFrame) -> dict:
-    means = train.groupby(["pickup_zone", "dropoff_zone"])["duration_seconds"].mean()
+    means = train.groupby(["pickup_zone", "dropoff_zone"])["duration_seconds"].median()
     return means.to_dict()
 
 
