@@ -12,6 +12,7 @@ XGBoost it is, because it's a default choice. Lets use it to create an MVP.
 ## Scoreboard
 
 `grade.py` = fixed 50k sample (mirrors eval). `full dev` = all 1.2M dev rows.
+All runs below use 1M sample unless noted in the Full Training table.
 
 | Experiment | grade.py MAE | Δ grade.py | full dev MAE | Δ full dev |
 |---|---|---|---|---|
@@ -21,7 +22,12 @@ XGBoost it is, because it's a default choice. Lets use it to create an MVP.
 | Exp 3: + haversine_km | 303.4s | -1.0s | — | — |
 | Exp 4: zone_pair_mean → median | 302.7s | -0.7s | 300.9s | — |
 | Exp 5: zone_pair_mean → trimmed mean (10%) | 302.3s | -0.4s | 300.4s | -0.5s |
-| Exp 5 on full 37M data (all changes so far) | 292.9s | -9.4s | 291.4s | -9.0s |
+
+## Full Training Runs (37M rows)
+
+| Features at time of run | grade.py MAE | full dev MAE | Training time |
+|---|---|---|---|
+| Exp 1+2+3 (zone_pair_mean mean, no passenger_count, haversine_km) | 292.9s | 291.4s | ~17.5 min |
 
 ---
 
