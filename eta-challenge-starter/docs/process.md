@@ -23,6 +23,7 @@ All runs below use 1M sample unless noted in the Full Training table.
 | Exp 4: zone_pair_mean → median | 302.7s | -0.7s | 300.9s | — |
 | Exp 5: zone_pair_mean → trimmed mean (10%) | 302.3s | -0.4s | 300.4s | -0.5s |
 | Exp 6: + zone_pair_hour_mean (branch: exp/zone-pair-hour-mean) | 306.3s | +4.0s | 305.2s | +4.8s |
+| Exp 7: + zone_pair_dow_mean (branch: exp/zone-pair-dow-mean) | 304.7s | +2.4s | 303.0s | +2.6s |
 
 ## Full Training Runs (37M rows)
 
@@ -90,4 +91,12 @@ All runs below use 1M sample unless noted in the Full Training table.
 **Result:** grade.py 302.3s → 306.3s (+4.0s), full dev 300.4s → 305.2s (+4.8s). **Worse.** Root cause: 108k buckets on 1M rows = ~9 trips/bucket on average. Too sparse for reliable trimmed mean estimates. No minimum count guard — noisy buckets hurt more than they help. Branch not merged.
 
 **Next step if revisiting:** add minimum count threshold (e.g. skip bucket if < 30 trips, fall back to zone_pair_mean). Will be more effective on full 37M data (~34 trips/bucket average).
+
+### Experiment 7 — Zone-Pair × DOW mean (branch: exp/zone-pair-dow-mean)
+
+**Hypothesis:** Reducing from 24 hour-buckets to 7 day-of-week buckets reduces sparsity (55k buckets vs 108k on 1M rows). DOW captures weekend vs weekday variation per route without the extreme sparsity that killed exp6.
+
+**Approach:** Replace `zone_pair_hour_mean` with `zone_pair_dow_mean`: trimmed mean (5%) per (pickup, dropoff, dow) with fallback to `zone_pair_mean`. No minimum count guard.
+
+**Result:** grade.py 302.3s → 304.7s (+2.4s), full dev 300.4s → 303.0s (+2.6s). **Worse.** Even 7 buckets is too sparse on 1M sample (~18 trips/bucket avg for active pairs). DOW signal is likely already captured by the raw `dow` feature. Branch not merged.
 
