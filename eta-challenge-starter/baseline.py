@@ -125,7 +125,7 @@ def main() -> None:
     print("\nTraining XGBoost...")
     model = xgb.XGBRegressor(
         n_estimators=800,
-        max_depth=6,
+        max_depth=8,
         learning_rate=0.08,
         subsample=0.8,
         colsample_bytree=0.8,
