@@ -28,8 +28,23 @@ import xgboost as xgb
 DATA_DIR = Path(__file__).parent / "data"
 MODEL_PATH = Path(__file__).parent / "model.pkl"
 ZONE_PAIR_MEANS_PATH = Path(__file__).parent / "zone_pair_means.pkl"
+ZONE_CENTROIDS_PATH = DATA_DIR / "zone_centroids.csv"
 
-FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "zone_pair_mean"]
+FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "zone_pair_mean", "haversine_km"]
+
+_R = 6371.0  # Earth radius in km
+
+
+def load_zone_centroids() -> dict:
+    df = pd.read_csv(ZONE_CENTROIDS_PATH)
+    return {row.zone_id: (row.latitude, row.longitude) for row in df.itertuples()}
+
+
+def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    return 2 * _R * np.arcsin(np.sqrt(a))
 
 
 def build_zone_pair_means(train: pd.DataFrame) -> dict:
@@ -37,19 +52,31 @@ def build_zone_pair_means(train: pd.DataFrame) -> dict:
     return means.to_dict()
 
 
-def engineer_features(df: pd.DataFrame, zone_pair_means: dict, global_mean: float) -> pd.DataFrame:
+def engineer_features(
+    df: pd.DataFrame,
+    zone_pair_means: dict,
+    global_mean: float,
+    centroids: dict,
+) -> pd.DataFrame:
     ts = pd.to_datetime(df["requested_at"])
     pair_mean = [
         zone_pair_means.get((int(pu), int(do)), global_mean)
         for pu, do in zip(df["pickup_zone"], df["dropoff_zone"])
     ]
+    # fallback to 0.0 for any zone not in the shapefile (2 zones missing)
+    hav = [
+        haversine(*centroids[pu], *centroids[do])
+        if pu in centroids and do in centroids else 0.0
+        for pu, do in zip(df["pickup_zone"].astype(int), df["dropoff_zone"].astype(int))
+    ]
     return pd.DataFrame({
-        "pickup_zone":     df["pickup_zone"].astype("int32"),
-        "dropoff_zone":    df["dropoff_zone"].astype("int32"),
-        "hour":            ts.dt.hour.astype("int8"),
-        "dow":             ts.dt.dayofweek.astype("int8"),
-        "month":           ts.dt.month.astype("int8"),
-        "zone_pair_mean":  pair_mean,
+        "pickup_zone":    df["pickup_zone"].astype("int32"),
+        "dropoff_zone":   df["dropoff_zone"].astype("int32"),
+        "hour":           ts.dt.hour.astype("int8"),
+        "dow":            ts.dt.dayofweek.astype("int8"),
+        "month":          ts.dt.month.astype("int8"),
+        "zone_pair_mean": pair_mean,
+        "haversine_km":   hav,
     })[FEATURES]
 
 
@@ -68,14 +95,18 @@ def main() -> None:
     print(f"  train: {len(train):,} rows")
     print(f"  dev:   {len(dev):,} rows")
 
+    print("\nLoading zone centroids...")
+    centroids = load_zone_centroids()
+    print(f"  {len(centroids)} zones loaded")
+
     print("\nBuilding zone-pair means...")
     zone_pair_means = build_zone_pair_means(train)
     global_mean = float(train["duration_seconds"].mean())
     print(f"  {len(zone_pair_means):,} unique zone pairs | global mean: {global_mean:.1f}s")
 
-    X_train = engineer_features(train, zone_pair_means, global_mean)
+    X_train = engineer_features(train, zone_pair_means, global_mean, centroids)
     y_train = train["duration_seconds"].to_numpy()
-    X_dev = engineer_features(dev, zone_pair_means, global_mean)
+    X_dev = engineer_features(dev, zone_pair_means, global_mean, centroids)
     y_dev = dev["duration_seconds"].to_numpy()
 
     print("\nTraining XGBoost...")
