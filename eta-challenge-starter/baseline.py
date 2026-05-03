@@ -55,7 +55,7 @@ def build_zone_pair_hour_means(train: pd.DataFrame) -> dict:
     train["hour"] = ts.dt.hour
 
     def trimmed_mean(x: pd.Series) -> float:
-        lo, hi = x.quantile(0.10), x.quantile(0.90)
+        lo, hi = x.quantile(0.05), x.quantile(0.95)
         trimmed = x[(x >= lo) & (x <= hi)]
         return trimmed.mean() if len(trimmed) else x.mean()
 
