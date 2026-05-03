@@ -27,13 +27,22 @@ import xgboost as xgb
 
 DATA_DIR = Path(__file__).parent / "data"
 MODEL_PATH = Path(__file__).parent / "model.pkl"
+ZONE_PAIR_MEANS_PATH = Path(__file__).parent / "zone_pair_means.pkl"
 
-FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "passenger_count"]
+FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "passenger_count", "zone_pair_mean"]
 
 
-def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Turn raw request columns into the 6 model features."""
+def build_zone_pair_means(train: pd.DataFrame) -> dict:
+    means = train.groupby(["pickup_zone", "dropoff_zone"])["duration_seconds"].mean()
+    return means.to_dict()
+
+
+def engineer_features(df: pd.DataFrame, zone_pair_means: dict, global_mean: float) -> pd.DataFrame:
     ts = pd.to_datetime(df["requested_at"])
+    pair_mean = [
+        zone_pair_means.get((int(pu), int(do)), global_mean)
+        for pu, do in zip(df["pickup_zone"], df["dropoff_zone"])
+    ]
     return pd.DataFrame({
         "pickup_zone":     df["pickup_zone"].astype("int32"),
         "dropoff_zone":    df["dropoff_zone"].astype("int32"),
@@ -41,11 +50,12 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
         "dow":             ts.dt.dayofweek.astype("int8"),
         "month":           ts.dt.month.astype("int8"),
         "passenger_count": df["passenger_count"].astype("int8"),
+        "zone_pair_mean":  pair_mean,
     })[FEATURES]
 
 
 def main() -> None:
-    train_path = DATA_DIR / "train.parquet"
+    train_path = DATA_DIR / "sample_1M.parquet"
     dev_path = DATA_DIR / "dev.parquet"
     for p in (train_path, dev_path):
         if not p.exists():
@@ -59,9 +69,14 @@ def main() -> None:
     print(f"  train: {len(train):,} rows")
     print(f"  dev:   {len(dev):,} rows")
 
-    X_train = engineer_features(train)
+    print("\nBuilding zone-pair means...")
+    zone_pair_means = build_zone_pair_means(train)
+    global_mean = float(train["duration_seconds"].mean())
+    print(f"  {len(zone_pair_means):,} unique zone pairs | global mean: {global_mean:.1f}s")
+
+    X_train = engineer_features(train, zone_pair_means, global_mean)
     y_train = train["duration_seconds"].to_numpy()
-    X_dev = engineer_features(dev)
+    X_dev = engineer_features(dev, zone_pair_means, global_mean)
     y_dev = dev["duration_seconds"].to_numpy()
 
     print("\nTraining XGBoost...")
@@ -86,6 +101,10 @@ def main() -> None:
     with open(MODEL_PATH, "wb") as f:
         pickle.dump(model, f)
     print(f"Saved model to {MODEL_PATH}")
+
+    with open(ZONE_PAIR_MEANS_PATH, "wb") as f:
+        pickle.dump({"means": zone_pair_means, "global_mean": global_mean}, f)
+    print(f"Saved zone-pair means to {ZONE_PAIR_MEANS_PATH}")
 
 
 if __name__ == "__main__":
