@@ -17,6 +17,7 @@ about `predict.py` — this file just needs to produce a `model.pkl` that
 
 from __future__ import annotations
 
+import argparse
 import pickle
 import time
 from pathlib import Path
@@ -81,13 +82,19 @@ def engineer_features(
 
 
 def main() -> None:
-    train_path = DATA_DIR / "sample_1M.parquet"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--full", action="store_true", help="Train on full 37M dataset instead of 1M sample")
+    args = parser.parse_args()
+
+    train_path = DATA_DIR / ("train.parquet" if args.full else "sample_1M.parquet")
     dev_path = DATA_DIR / "dev.parquet"
     for p in (train_path, dev_path):
         if not p.exists():
             raise SystemExit(
                 f"Missing {p.name}. Run `python data/download_data.py` first."
             )
+    if args.full:
+        print("** Full training mode (37M rows) **")
 
     print("Loading data...")
     train = pd.read_parquet(train_path)
