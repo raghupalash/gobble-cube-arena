@@ -17,7 +17,7 @@ import pandas as pd
 
 _MODEL_PATH = Path(__file__).parent / "model.pkl"
 _ZONE_PAIR_MEANS_PATH = Path(__file__).parent / "zone_pair_means.pkl"
-_ZONE_PAIR_HOUR_MEANS_PATH = Path(__file__).parent / "zone_pair_hour_means.pkl"
+_ZONE_PAIR_DOW_MEANS_PATH = Path(__file__).parent / "zone_pair_dow_means.pkl"
 _ZONE_CENTROIDS_PATH = Path(__file__).parent / "data" / "zone_centroids.csv"
 
 with open(_MODEL_PATH, "rb") as _f:
@@ -30,8 +30,8 @@ with open(_ZONE_PAIR_MEANS_PATH, "rb") as _f:
     _ZONE_PAIR_MEANS: dict = _zp["means"]
     _GLOBAL_MEAN: float = _zp["global_mean"]
 
-with open(_ZONE_PAIR_HOUR_MEANS_PATH, "rb") as _f:
-    _ZONE_PAIR_HOUR_MEANS: dict = pickle.load(_f)
+with open(_ZONE_PAIR_DOW_MEANS_PATH, "rb") as _f:
+    _ZONE_PAIR_DOW_MEANS: dict = pickle.load(_f)
 
 _df = pd.read_csv(_ZONE_CENTROIDS_PATH)
 _CENTROIDS: dict = {row.zone_id: (row.latitude, row.longitude) for row in _df.itertuples()}
@@ -39,7 +39,7 @@ _CENTROIDS: dict = {row.zone_id: (row.latitude, row.longitude) for row in _df.it
 _R = 6371.0
 
 # Feature order must match baseline.py:
-#   pickup_zone, dropoff_zone, hour, dow, month, zone_pair_mean, haversine_km, zone_pair_hour_mean
+#   pickup_zone, dropoff_zone, hour, dow, month, zone_pair_mean, haversine_km, zone_pair_dow_mean
 
 
 def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -61,13 +61,13 @@ def predict(request: dict) -> float:
         }
     """
     ts = datetime.fromisoformat(request["requested_at"])
-    pu, do, h = int(request["pickup_zone"]), int(request["dropoff_zone"]), ts.hour
+    pu, do = int(request["pickup_zone"]), int(request["dropoff_zone"])
     zone_pair_mean = _ZONE_PAIR_MEANS.get((pu, do), _GLOBAL_MEAN)
-    zone_pair_hour_mean = _ZONE_PAIR_HOUR_MEANS.get((pu, do, h), zone_pair_mean)
+    zone_pair_dow_mean = _ZONE_PAIR_DOW_MEANS.get((pu, do, ts.weekday()), zone_pair_mean)
     pu_cent, do_cent = _CENTROIDS.get(pu), _CENTROIDS.get(do)
     haversine_km = _haversine(*pu_cent, *do_cent) if pu_cent and do_cent else 0.0
     x = np.array(
-        [[pu, do, h, ts.weekday(), ts.month, zone_pair_mean, haversine_km, zone_pair_hour_mean]],
+        [[pu, do, ts.hour, ts.weekday(), ts.month, zone_pair_mean, haversine_km, zone_pair_dow_mean]],
         dtype=np.float32,
     )
     return float(_MODEL.predict(x)[0])
