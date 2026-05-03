@@ -11,13 +11,15 @@ XGBoost it is, because it's a default choice. Lets use it to create an MVP.
 
 ## Scoreboard
 
-| Experiment | Dev MAE | Delta |
-|---|---|---|
-| Baseline (6 features) | 357.2s | — |
-| Exp 1: + zone_pair_mean | 305.9s | -51.3s |
-| Exp 2: - passenger_count | 304.4s | -1.5s |
-| Exp 3: + haversine_km | 303.4s | -1.0s |
-| Exp 4: zone_pair_mean → median | 302.7s | -0.7s |
+`grade.py` = fixed 50k sample (mirrors eval). `full dev` = all 1.2M dev rows.
+
+| Experiment | grade.py MAE | Δ grade.py | full dev MAE | Δ full dev |
+|---|---|---|---|---|
+| Baseline (6 features) | 357.2s | — | — | — |
+| Exp 1: + zone_pair_mean | 305.9s | -51.3s | — | — |
+| Exp 2: - passenger_count | 304.4s | -1.5s | — | — |
+| Exp 3: + haversine_km | 303.4s | -1.0s | — | — |
+| Exp 4: zone_pair_mean → median | 302.7s | -0.7s | 300.9s | — |
 
 ---
 
