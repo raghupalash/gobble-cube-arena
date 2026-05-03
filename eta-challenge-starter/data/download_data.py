@@ -13,12 +13,14 @@ Takes ~5 minutes on a fast connection, ~20 minutes on a slow one.
 
 from __future__ import annotations
 
+import zipfile
 from pathlib import Path
 from urllib.request import urlretrieve
 
 import pandas as pd
 
 BASE_URL = "https://d37ci6vzurychx.cloudfront.net/trip-data"
+SHAPEFILE_URL = "https://d37ci6vzurychx.cloudfront.net/misc/taxi_zones.zip"
 MONTHS = [f"2023-{m:02d}" for m in range(1, 13)]
 
 DATA_DIR = Path(__file__).parent
@@ -85,6 +87,44 @@ def split(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     return train, dev
 
 
+def download_zone_centroids() -> None:
+    """Download TLC shapefile and extract zone centroids.
+
+    Requires geopandas (data-prep only, not a Docker dependency).
+    Output committed to the repo so this only needs to run once.
+    """
+    import geopandas as gpd
+
+    out_csv = DATA_DIR / "zone_centroids.csv"
+    if out_csv.exists():
+        print(f"  cached   zone_centroids.csv ({len(pd.read_csv(out_csv))} zones)")
+        return
+
+    zip_path = RAW_DIR / "taxi_zones.zip"
+    RAW_DIR.mkdir(exist_ok=True)
+    if not zip_path.exists():
+        print(f"  fetching {SHAPEFILE_URL}")
+        urlretrieve(SHAPEFILE_URL, zip_path)
+    else:
+        print(f"  cached   taxi_zones.zip")
+
+    extract_dir = RAW_DIR / "taxi_zones"
+    with zipfile.ZipFile(zip_path) as zf:
+        zf.extractall(extract_dir)
+
+    shp = next(extract_dir.rglob("*.shp"))
+    gdf = gpd.read_file(shp)
+    # compute centroids in NYC projected CRS (EPSG:2263, feet) for accuracy,
+    # then convert centroid points to lat/lon
+    centroids = gdf.geometry.to_crs("EPSG:2263").centroid.to_crs("EPSG:4326")
+    pd.DataFrame({
+        "zone_id":   gdf["LocationID"].astype(int),
+        "latitude":  centroids.y.round(6),
+        "longitude": centroids.x.round(6),
+    }).sort_values("zone_id").to_csv(out_csv, index=False)
+    print(f"  zone_centroids.csv: {len(gdf)} zones")
+
+
 def main() -> None:
     print("Step 1: download monthly parquets")
     paths = [download_month(m) for m in MONTHS]
@@ -106,6 +146,9 @@ def main() -> None:
         DATA_DIR / "sample_1M.parquet", index=False
     )
     print(f"  sample_1M.parquet: {len(sample):,} rows")
+
+    print("\nStep 5: zone centroids from TLC shapefile")
+    download_zone_centroids()
 
     print("\nDone. Next: `python baseline.py`")
 
