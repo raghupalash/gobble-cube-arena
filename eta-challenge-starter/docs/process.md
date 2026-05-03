@@ -25,6 +25,8 @@ All runs below use 1M sample unless noted in the Full Training table.
 | Exp 6: + zone_pair_hour_mean (branch: exp/zone-pair-hour-mean) | 306.3s | +4.0s | 305.2s | +4.8s |
 | Exp 7: + zone_pair_dow_mean (branch: exp/zone-pair-dow-mean) | 304.7s | +2.4s | 303.0s | +2.6s |
 | Exp 8: + is_rush_hour, is_weekend, is_airport flags (branch: exp/flags) | 302.8s | +0.5s | 300.9s | +0.5s |
+| Exp 9a: n_estimators=800, max_depth=6 (branch: exp/hyperparams) | 303.1s | +0.8s | 301.2s | +0.8s |
+| Exp 9b: n_estimators=800, max_depth=8 (branch: exp/hyperparams) | 303.3s | +1.0s | 301.4s | +1.0s |
 
 ## Full Training Runs (37M rows)
 
@@ -108,6 +110,14 @@ All runs below use 1M sample unless noted in the Full Training table.
 **Approach:** Add three features: `is_rush_hour` (7–9am or 4–7pm on weekdays), `is_weekend` (dow ≥ 5), `is_airport` (pickup or dropoff in EWR=1, JFK=132, LGA=138).
 
 **Result:** grade.py 302.3s → 302.8s (+0.5s), full dev 300.4s → 300.9s (+0.5s). **Worse.** XGBoost already learns these patterns via splits on `hour` and `dow`. Explicit flags add no new information. Branch not merged.
+
+### Experiment 9 — Hyperparameter tuning: n_estimators, max_depth (branch: exp/hyperparams)
+
+**Hypothesis:** Current 400/8 may be leaving gains on the table. More trees (800) and/or shallower depth (6) could improve generalization.
+
+**Approach:** Tested two variants on clean master features (no flags): 800/6 and 800/8.
+
+**Result:** Both worse than master. 800/6: +0.8s grade.py. 800/8: +1.0s grade.py. 400 trees at depth 8 is near-optimal for the 1M sample — extra trees memorize noise. Hyperparameter gains likely only realizable on full 37M. Branch not merged.
 
 **Hypothesis:** Reducing from 24 hour-buckets to 7 day-of-week buckets reduces sparsity (55k buckets vs 108k on 1M rows). DOW captures weekend vs weekday variation per route without the extreme sparsity that killed exp6.
 
