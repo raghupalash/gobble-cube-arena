@@ -28,6 +28,7 @@ All runs below use 1M sample unless noted in the Full Training table.
 | Exp 8 (full 37M): flags + 800/6 on full dataset | 293.4s | -8.9s | 292.2s | -8.2s |
 | Exp 9a: n_estimators=800, max_depth=6 (branch: exp/hyperparams) | 303.1s | +0.8s | 301.2s | +0.8s |
 | Exp 9b: n_estimators=800, max_depth=8 (branch: exp/hyperparams) | 303.3s | +1.0s | 301.4s | +1.0s |
+| **Master (full 37M): 7 features, 400/8** | **292.9s** | **-9.4s** | **291.2s** | **-9.2s** |
 
 ## Full Training Runs (37M rows)
 
@@ -36,6 +37,7 @@ All runs below use 1M sample unless noted in the Full Training table.
 | Features at time of run | grade.py MAE | full dev MAE | Training time |
 |---|---|---|---|
 | flags + 800/6 (exp/flags branch) | 293.4s | 292.2s | ~34 min |
+| **master: 7 features, 400/8** | **292.9s** | **291.2s** | ~38 min |
 
 ---
 
