@@ -30,6 +30,7 @@ All runs below use 1M sample unless noted in the Full Training table.
 | Exp 9b: n_estimators=800, max_depth=8 (branch: exp/hyperparams) | 303.3s | +1.0s | 301.4s | +1.0s |
 | **Master (full 37M): 7 features, 400/8** | **292.9s** | **-9.4s** | **291.2s** | **-9.2s** |
 | Exp 10: log1p target transform (branch: exp/log-transform-target, on top of flags) | 282.3s | -10.6s | 280.2s | — |
+| Exp 11: filter bad labels <60s (branch: exp/filter-bad-labels) | 282.8s | +0.5s | 280.7s | +0.5s |
 
 ## Full Training Runs (37M rows)
 
