@@ -71,4 +71,4 @@ def predict(request: dict) -> float:
         [[pu, do, h, dow, ts.month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport]],
         dtype=np.float32,
     )
-    return float(_MODEL.predict(x)[0])
+    return float(math.expm1(_MODEL.predict(x)[0]))

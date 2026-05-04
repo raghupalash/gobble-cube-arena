@@ -24,6 +24,8 @@ All runs below use 1M sample unless noted in the Full Training table.
 | Exp 5: zone_pair_mean → trimmed mean (10%) | 302.3s | -0.4s | 300.4s | -0.5s |
 | Exp 6: + zone_pair_hour_mean (branch: exp/zone-pair-hour-mean) | 306.3s | +4.0s | 305.2s | +4.8s |
 | Exp 7: + zone_pair_dow_mean (branch: exp/zone-pair-dow-mean) | 304.7s | +2.4s | 303.0s | +2.6s |
+| Exp 8: + flags (is_rush_hour, is_weekend, is_airport) on exp/flags (1M) | 302.8s | -0.5s | — | — |
+| Exp 9: log1p target transform (branch: exp/log-transform-target, on top of flags) | 282.3s | -20.5s | 280.2s | — |
 
 ## Full Training Runs (37M rows)
 
@@ -99,4 +101,20 @@ All runs below use 1M sample unless noted in the Full Training table.
 **Approach:** Replace `zone_pair_hour_mean` with `zone_pair_dow_mean`: trimmed mean (5%) per (pickup, dropoff, dow) with fallback to `zone_pair_mean`. No minimum count guard.
 
 **Result:** grade.py 302.3s → 304.7s (+2.4s), full dev 300.4s → 303.0s (+2.6s). **Worse.** Even 7 buckets is too sparse on 1M sample (~18 trips/bucket avg for active pairs). DOW signal is likely already captured by the raw `dow` feature. Branch not merged.
+
+### Experiment 8 — Flags: is_rush_hour, is_weekend, is_airport (branch: exp/flags)
+
+**Hypothesis:** Binary flags for rush hour (7–9am, 4–7pm weekdays), weekend, and airport zones (EWR=1, JFK=132, LGA=138) encode structured time-of-day and trip-type signals the raw hour/dow integers may not fully capture.
+
+**Approach:** Add three int8 features. Tune n_estimators=800, max_depth=6. Full 37M run.
+
+**Result:** 1M sample: 302.3s → 302.8s (marginal). Full 37M run: 302.3s → 293.4s. Flags add ~0s on small sample but help on full data. Branch not yet merged to master.
+
+### Experiment 9 — Log-transform target (branch: exp/log-transform-target)
+
+**Hypothesis:** Error analysis showed 96% of the worst 1000 errors are very long trips (>60 min), with the model under-predicting by ~75 min on average. XGBoost leaf values are bounded by training samples, and rare long trips regress toward zone_pair_mean. Log-transforming the target (`log1p`) compresses the tail so the model can learn the full distribution.
+
+**Approach:** `y_train = np.log1p(duration_seconds)`. After inference: `preds = np.expm1(model.predict(X))`. Built on top of exp/flags (includes is_rush_hour, is_weekend, is_airport + n_estimators=800).
+
+**Result:** grade.py 302.8s → 282.3s (-20.5s), full dev 280.2s. **Largest single gain since zone_pair_mean.** Full 37M run pending.
 
