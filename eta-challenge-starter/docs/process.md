@@ -25,6 +25,7 @@ All runs below use 1M sample unless noted in the Full Training table.
 | Exp 6: + zone_pair_hour_mean (branch: exp/zone-pair-hour-mean) | 306.3s | +4.0s | 305.2s | +4.8s |
 | Exp 7: + zone_pair_dow_mean (branch: exp/zone-pair-dow-mean) | 304.7s | +2.4s | 303.0s | +2.6s |
 | Exp 8: + is_rush_hour, is_weekend, is_airport flags (branch: exp/flags) | 302.8s | +0.5s | 300.9s | +0.5s |
+| Exp 8 (full 37M): flags + 800/6 on full dataset | 293.4s | -8.9s | 292.2s | -8.2s |
 | Exp 9a: n_estimators=800, max_depth=6 (branch: exp/hyperparams) | 303.1s | +0.8s | 301.2s | +0.8s |
 | Exp 9b: n_estimators=800, max_depth=8 (branch: exp/hyperparams) | 303.3s | +1.0s | 301.4s | +1.0s |
 
@@ -34,7 +35,7 @@ All runs below use 1M sample unless noted in the Full Training table.
 
 | Features at time of run | grade.py MAE | full dev MAE | Training time |
 |---|---|---|---|
-| — | — | — | — |
+| flags + 800/6 (exp/flags branch) | 293.4s | 292.2s | ~34 min |
 
 ---
 
