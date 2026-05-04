@@ -128,6 +128,10 @@ def main() -> None:
     centroids = load_zone_centroids()
     print(f"  {len(centroids)} zones loaded")
 
+    n_before = len(train)
+    train = train[train["duration_seconds"] >= 60]
+    print(f"\nFiltered bad labels (<60s): {n_before - len(train):,} rows removed ({len(train):,} remain)")
+
     print("\nBuilding zone-pair means...")
     zone_pair_means = build_zone_pair_means(train)
     global_mean = float(train["duration_seconds"].mean())
