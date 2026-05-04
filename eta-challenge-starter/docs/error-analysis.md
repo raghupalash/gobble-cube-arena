@@ -84,6 +84,14 @@ These aren't driving the worst errors (model isn't predicting 30s trips) but the
 
 ---
 
+## Methodological Trade-offs
+
+| Trade-off | Decision | Rationale |
+|---|---|---|
+| Worst-N cutoff | 1000 | Arbitrary — clusters would look similar at 500 or 2000. Sufficient for identifying systematic failure modes; not suitable for measuring their exact magnitude. |
+
+---
+
 ## Recommended Experiment Order
 
 1. **Log-transform target** — fixes cluster 1 (96% of worst MAE). Highest expected impact.
