@@ -27,7 +27,7 @@ NEXT_N=$(ssh "$VPS" "
 
 LOG="/tmp/full_train_${NEXT_N}.log"
 echo "[train] starting full run -> $LOG"
-ssh "$VPS" "cd $REMOTE_DIR && nohup python baseline.py --full > $LOG 2>&1 &"
+ssh "$VPS" "cd $REMOTE_DIR && nohup .venv/bin/python3 baseline.py --full > $LOG 2>&1 &"
 echo "[train] started. to tail: ssh $VPS 'tail -f $LOG'"
 echo "[tail]  or run: ./remote-train.sh tail"
 

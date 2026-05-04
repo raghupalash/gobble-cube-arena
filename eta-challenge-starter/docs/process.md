@@ -31,6 +31,7 @@ All runs below use 1M sample unless noted in the Full Training table.
 | **Master (full 37M): 7 features, 400/8** | **292.9s** | **-9.4s** | **291.2s** | **-9.2s** |
 | Exp 10: log1p target transform (branch: exp/log-transform-target, on top of flags) | 282.3s | -10.6s | 280.2s | — |
 | Exp 11: filter bad labels <60s (branch: exp/filter-bad-labels) | 282.8s | +0.5s | 280.7s | +0.5s |
+| **Exp 10 (full 37M): log1p + flags + 800/6** | **273.1s** | **-19.8s** | **271.5s** | **-19.7s** |
 
 ## Full Training Runs (37M rows)
 

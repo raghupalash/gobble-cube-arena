@@ -19,7 +19,7 @@ tail:
 score:
 	@vps=$$(awk '{print $$1}' .remote-last-run 2>/dev/null) && \
 	dir=$$(awk '{print $$2}' .remote-last-run 2>/dev/null) && \
-	ssh "$$vps" "cd $$dir && python grade.py"
+	ssh "$$vps" "cd $$dir && .venv/bin/python3 grade.py"
 
 pull:
 	@vps=$$(awk '{print $$1}' .remote-last-run 2>/dev/null) && \
