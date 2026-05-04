@@ -31,7 +31,9 @@ MODEL_PATH = Path(__file__).parent / "model.pkl"
 ZONE_PAIR_MEANS_PATH = Path(__file__).parent / "zone_pair_means.pkl"
 ZONE_CENTROIDS_PATH = DATA_DIR / "zone_centroids.csv"
 
-FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "zone_pair_mean", "haversine_km"]
+FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "zone_pair_mean", "haversine_km", "is_rush_hour", "is_weekend", "is_airport"]
+
+_AIRPORT_ZONES = {1, 132, 138}  # EWR, JFK, LGA
 
 _R = 6371.0  # Earth radius in km
 
@@ -76,14 +78,28 @@ def engineer_features(
         if pu in centroids and do in centroids else 0.0
         for pu, do in zip(df["pickup_zone"].astype(int), df["dropoff_zone"].astype(int))
     ]
+    hour = ts.dt.hour
+    dow = ts.dt.dayofweek
+    is_rush_hour = (
+        ((hour >= 7) & (hour < 9) & (dow < 5)) |
+        ((hour >= 16) & (hour < 19) & (dow < 5))
+    ).astype("int8")
+    is_weekend = (dow >= 5).astype("int8")
+    is_airport = (
+        df["pickup_zone"].astype(int).isin(_AIRPORT_ZONES) |
+        df["dropoff_zone"].astype(int).isin(_AIRPORT_ZONES)
+    ).astype("int8")
     return pd.DataFrame({
         "pickup_zone":    df["pickup_zone"].astype("int32"),
         "dropoff_zone":   df["dropoff_zone"].astype("int32"),
-        "hour":           ts.dt.hour.astype("int8"),
-        "dow":            ts.dt.dayofweek.astype("int8"),
+        "hour":           hour.astype("int8"),
+        "dow":            dow.astype("int8"),
         "month":          ts.dt.month.astype("int8"),
         "zone_pair_mean": pair_mean,
         "haversine_km":   hav,
+        "is_rush_hour":   is_rush_hour,
+        "is_weekend":     is_weekend,
+        "is_airport":     is_airport,
     })[FEATURES]
 
 
@@ -118,14 +134,14 @@ def main() -> None:
     print(f"  {len(zone_pair_means):,} unique zone pairs | global mean: {global_mean:.1f}s")
 
     X_train = engineer_features(train, zone_pair_means, global_mean, centroids)
-    y_train = train["duration_seconds"].to_numpy()
+    y_train = np.log1p(train["duration_seconds"].to_numpy())
     X_dev = engineer_features(dev, zone_pair_means, global_mean, centroids)
     y_dev = dev["duration_seconds"].to_numpy()
 
     print("\nTraining XGBoost...")
     model = xgb.XGBRegressor(
-        n_estimators=400,
-        max_depth=8,
+        n_estimators=800,
+        max_depth=6,
         learning_rate=0.08,
         subsample=0.8,
         colsample_bytree=0.8,
@@ -137,7 +153,7 @@ def main() -> None:
     model.fit(X_train, y_train, verbose=False)
     print(f"  trained in {time.time() - t0:.0f}s")
 
-    preds = model.predict(X_dev)
+    preds = np.expm1(model.predict(X_dev))
     mae = float(np.mean(np.abs(preds - y_dev)))
     print(f"\nDev MAE: {mae:.1f} seconds")
 

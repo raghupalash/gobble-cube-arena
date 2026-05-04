@@ -19,6 +19,8 @@ _MODEL_PATH = Path(__file__).parent / "model.pkl"
 _ZONE_PAIR_MEANS_PATH = Path(__file__).parent / "zone_pair_means.pkl"
 _ZONE_CENTROIDS_PATH = Path(__file__).parent / "data" / "zone_centroids.csv"
 
+_AIRPORT_ZONES = {1, 132, 138}  # EWR, JFK, LGA
+
 with open(_MODEL_PATH, "rb") as _f:
     _MODEL = pickle.load(_f)
 if hasattr(_MODEL, "get_booster"):
@@ -35,7 +37,7 @@ _CENTROIDS: dict = {row.zone_id: (row.latitude, row.longitude) for row in _df.it
 _R = 6371.0
 
 # Feature order must match baseline.py:
-#   pickup_zone, dropoff_zone, hour, dow, month, zone_pair_mean, haversine_km
+#   pickup_zone, dropoff_zone, hour, dow, month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport
 
 
 def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -58,11 +60,15 @@ def predict(request: dict) -> float:
     """
     ts = datetime.fromisoformat(request["requested_at"])
     pu, do = int(request["pickup_zone"]), int(request["dropoff_zone"])
+    h, dow = ts.hour, ts.weekday()
     zone_pair_mean = _ZONE_PAIR_MEANS.get((pu, do), _GLOBAL_MEAN)
     pu_cent, do_cent = _CENTROIDS.get(pu), _CENTROIDS.get(do)
     haversine_km = _haversine(*pu_cent, *do_cent) if pu_cent and do_cent else 0.0
+    is_rush_hour = int((7 <= h < 9 and dow < 5) or (16 <= h < 19 and dow < 5))
+    is_weekend = int(dow >= 5)
+    is_airport = int(pu in _AIRPORT_ZONES or do in _AIRPORT_ZONES)
     x = np.array(
-        [[pu, do, ts.hour, ts.weekday(), ts.month, zone_pair_mean, haversine_km]],
+        [[pu, do, h, dow, ts.month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport]],
         dtype=np.float32,
     )
-    return float(_MODEL.predict(x)[0])
+    return float(math.expm1(_MODEL.predict(x)[0]))
