@@ -29,9 +29,12 @@ import xgboost as xgb
 DATA_DIR = Path(__file__).parent / "data"
 MODEL_PATH = Path(__file__).parent / "model.pkl"
 ZONE_PAIR_MEANS_PATH = Path(__file__).parent / "zone_pair_means.pkl"
+ZONE_PAIR_HOUR_MEANS_PATH = Path(__file__).parent / "zone_pair_hour_means.pkl"
 ZONE_CENTROIDS_PATH = DATA_DIR / "zone_centroids.csv"
 
-FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "zone_pair_mean", "haversine_km", "is_rush_hour", "is_weekend", "is_airport"]
+FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "zone_pair_mean", "haversine_km", "is_rush_hour", "is_weekend", "is_airport", "zone_pair_hour_mean"]
+
+MIN_BUCKET_COUNT = 30
 
 _AIRPORT_ZONES = {1, 132, 138}  # EWR, JFK, LGA
 
@@ -50,6 +53,21 @@ def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * _R * np.arcsin(np.sqrt(a))
 
 
+def build_zone_pair_hour_means(train: pd.DataFrame) -> dict:
+    def trimmed_mean(x: pd.Series) -> float:
+        if len(x) < MIN_BUCKET_COUNT:
+            return None
+        lo, hi = x.quantile(0.05), x.quantile(0.95)
+        trimmed = x[(x >= lo) & (x <= hi)]
+        return trimmed.mean() if len(trimmed) else x.mean()
+
+    ts = pd.to_datetime(train["requested_at"])
+    train = train.copy()
+    train["hour"] = ts.dt.hour
+    means = train.groupby(["pickup_zone", "dropoff_zone", "hour"])["duration_seconds"].apply(trimmed_mean)
+    return means.dropna().to_dict()
+
+
 def build_zone_pair_means(train: pd.DataFrame) -> dict:
     # trimmed mean: drop bottom and top 10% per pair, average the middle 80%
     def trimmed_mean(x: pd.Series) -> float:
@@ -64,13 +82,22 @@ def build_zone_pair_means(train: pd.DataFrame) -> dict:
 def engineer_features(
     df: pd.DataFrame,
     zone_pair_means: dict,
+    zone_pair_hour_means: dict,
     global_mean: float,
     centroids: dict,
 ) -> pd.DataFrame:
     ts = pd.to_datetime(df["requested_at"])
+    hours = ts.dt.hour.astype(int)
     pair_mean = [
         zone_pair_means.get((int(pu), int(do)), global_mean)
         for pu, do in zip(df["pickup_zone"], df["dropoff_zone"])
+    ]
+    pair_hour_mean = [
+        zone_pair_hour_means.get(
+            (int(pu), int(do), int(h)),
+            zone_pair_means.get((int(pu), int(do)), global_mean)
+        )
+        for pu, do, h in zip(df["pickup_zone"], df["dropoff_zone"], hours)
     ]
     # fallback to 0.0 for any zone not in the shapefile (2 zones missing)
     hav = [
@@ -97,9 +124,10 @@ def engineer_features(
         "month":          ts.dt.month.astype("int8"),
         "zone_pair_mean": pair_mean,
         "haversine_km":   hav,
-        "is_rush_hour":   is_rush_hour,
-        "is_weekend":     is_weekend,
-        "is_airport":     is_airport,
+        "is_rush_hour":          is_rush_hour,
+        "is_weekend":            is_weekend,
+        "is_airport":            is_airport,
+        "zone_pair_hour_mean":   pair_hour_mean,
     })[FEATURES]
 
 
@@ -133,9 +161,13 @@ def main() -> None:
     global_mean = float(train["duration_seconds"].mean())
     print(f"  {len(zone_pair_means):,} unique zone pairs | global mean: {global_mean:.1f}s")
 
-    X_train = engineer_features(train, zone_pair_means, global_mean, centroids)
+    print(f"\nBuilding zone-pair-hour means (min count={MIN_BUCKET_COUNT})...")
+    zone_pair_hour_means = build_zone_pair_hour_means(train)
+    print(f"  {len(zone_pair_hour_means):,} buckets with >= {MIN_BUCKET_COUNT} trips")
+
+    X_train = engineer_features(train, zone_pair_means, zone_pair_hour_means, global_mean, centroids)
     y_train = np.log1p(train["duration_seconds"].to_numpy())
-    X_dev = engineer_features(dev, zone_pair_means, global_mean, centroids)
+    X_dev = engineer_features(dev, zone_pair_means, zone_pair_hour_means, global_mean, centroids)
     y_dev = dev["duration_seconds"].to_numpy()
 
     print("\nTraining XGBoost...")
@@ -164,6 +196,10 @@ def main() -> None:
     with open(ZONE_PAIR_MEANS_PATH, "wb") as f:
         pickle.dump({"means": zone_pair_means, "global_mean": global_mean}, f)
     print(f"Saved zone-pair means to {ZONE_PAIR_MEANS_PATH}")
+
+    with open(ZONE_PAIR_HOUR_MEANS_PATH, "wb") as f:
+        pickle.dump(zone_pair_hour_means, f)
+    print(f"Saved zone-pair-hour means to {ZONE_PAIR_HOUR_MEANS_PATH}")
 
 
 if __name__ == "__main__":
