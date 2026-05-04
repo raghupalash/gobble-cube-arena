@@ -1,121 +1,74 @@
-#!/usr/bin/env python
+"""Submission interface — this is what Gobblecube's grader imports.
+
+The grader will call `predict` once per held-out request. The signature below
+is fixed; everything else (model type, preprocessing, etc.) is yours to change.
+"""
+
 from __future__ import annotations
-import argparse
+
 import pickle
-import time
+from datetime import datetime
 from pathlib import Path
+
+import math
+
 import numpy as np
 import pandas as pd
-import xgboost as xgb
 
-DATA_DIR = Path(__file__).parent / "data"
-MODEL_PATH = Path(__file__).parent / "model.pkl"
-METADATA_PATH = Path(__file__).parent / "metadata.pkl"
-ZONE_CENTROIDS_PATH = DATA_DIR / "zone_centroids.csv"
+_MODEL_PATH = Path(__file__).parent / "model.pkl"
+_ZONE_PAIR_MEANS_PATH = Path(__file__).parent / "zone_pair_means.pkl"
+_ZONE_CENTROIDS_PATH = Path(__file__).parent / "data" / "zone_centroids.csv"
 
-_AIRPORT_ZONES = {1, 132, 138}
+_AIRPORT_ZONES = {1, 132, 138}  # EWR, JFK, LGA
+
+with open(_MODEL_PATH, "rb") as _f:
+    _MODEL = pickle.load(_f)
+if hasattr(_MODEL, "get_booster"):
+    _MODEL.get_booster().feature_names = None
+
+with open(_ZONE_PAIR_MEANS_PATH, "rb") as _f:
+    _zp = pickle.load(_f)
+    _ZONE_PAIR_MEANS: dict = _zp["means"]
+    _GLOBAL_MEAN: float = _zp["global_mean"]
+
+_df = pd.read_csv(_ZONE_CENTROIDS_PATH)
+_CENTROIDS: dict = {row.zone_id: (row.latitude, row.longitude) for row in _df.itertuples()}
+
 _R = 6371.0
 
-def load_zone_centroids() -> dict:
-    df = pd.read_csv(ZONE_CENTROIDS_PATH)
-    return {row.zone_id: (row.latitude, row.longitude) for row in df.itertuples()}
+# Feature order must match baseline.py:
+#   pickup_zone, dropoff_zone, hour, dow, month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport
 
-def haversine(lat1, lon1, lat2, lon2):
-    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+
+def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
     dlat, dlon = lat2 - lat1, lon2 - lon1
-    a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2)**2
-    return 2 * _R * np.arcsin(np.sqrt(a))
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    return 2 * _R * math.asin(math.sqrt(a))
 
-def build_metadata(train: pd.DataFrame) -> dict:
-    print("Computing trimmed means and congestion stats...")
-    def get_trimmed_mean(group):
-        q1, q3 = group.quantile(0.1), group.quantile(0.9)
-        return group[(group >= q1) & (group <= q3)].mean()
 
-    # Zone Pair Means
-    zp_means = train.groupby(["pickup_zone", "dropoff_zone"])["duration_seconds"].apply(get_trimmed_mean).to_dict()
-    # Marginal Means (Congestion proxies)
-    pu_means = train.groupby("pickup_zone")["duration_seconds"].apply(get_trimmed_mean).to_dict()
-    do_means = train.groupby("dropoff_zone")["duration_seconds"].apply(get_trimmed_mean).to_dict()
-    
-    return {
-        "zp_means": zp_means,
-        "pu_means": pu_means,
-        "do_means": do_means,
-        "global_mean": float(train["duration_seconds"].mean())
-    }
+def predict(request: dict) -> float:
+    """Predict trip duration in seconds.
 
-def engineer_features(df: pd.DataFrame, meta: dict, centroids: dict) -> pd.DataFrame:
-    ts = pd.to_datetime(df["requested_at"])
-    pu = df["pickup_zone"].astype(int)
-    do = df["dropoff_zone"].astype(int)
-    
-    hour = ts.dt.hour
-    dow = ts.dt.dayofweek
-    month = ts.dt.month
-
-    # Feature Engineering
-    df_feat = pd.DataFrame({
-        "pickup_zone": pu.astype("category"),
-        "dropoff_zone": do.astype("category"),
-        "hour_sin": np.sin(2 * np.pi * hour / 24),
-        "hour_cos": np.cos(2 * np.pi * hour / 24),
-        "dow": dow.astype("int8"),
-        "month_sin": np.sin(2 * np.pi * month / 12),
-        "month_cos": np.cos(2 * np.pi * month / 12),
-        "haversine_km": [
-            haversine(*centroids[p], *centroids[d]) if p in centroids and d in centroids else 0.0 
-            for p, d in zip(pu, do)
-        ],
-        "zp_mean": [meta["zp_means"].get((p, d), meta["global_mean"]) for p, d in zip(pu, do)],
-        "pu_congestion": pu.map(meta["pu_means"]).fillna(meta["global_mean"]),
-        "do_congestion": do.map(meta["do_means"]).fillna(meta["global_mean"]),
-        "is_rush": ((hour.between(7, 9) | hour.between(16, 19)) & (dow < 5)).astype("int8"),
-        "is_airport": (pu.isin(_AIRPORT_ZONES) | do.isin(_AIRPORT_ZONES)).astype("int8"),
-    })
-    return df_feat
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--full", action="store_true")
-    args = parser.parse_args()
-
-    train_path = DATA_DIR / ("train.parquet" if args.full else "sample_1M.parquet")
-    train = pd.read_parquet(train_path)
-    train = train[train["duration_seconds"].between(60, 10800)] # Filter <1m and >3h
-    
-    dev = pd.read_parquet(DATA_DIR / "dev.parquet")
-    centroids = load_zone_centroids()
-    meta = build_metadata(train)
-
-    X_train = engineer_features(train, meta, centroids)
-    y_train = np.log1p(train["duration_seconds"].to_numpy())
-    
-    X_dev = engineer_features(dev, meta, centroids)
-    y_dev = dev["duration_seconds"].to_numpy()
-
-    print("Training XGBoost (optimized for MAE tail)...")
-    # Using larger learning rate with more trees for 37M
-    model = xgb.XGBRegressor(
-        n_estimators=1000,
-        max_depth=7,
-        learning_rate=0.1,
-        tree_method="hist",
-        enable_categorical=True, 
-        n_jobs=-1,
-        subsample=0.8,
-        colsample_bytree=0.8,
+    Input schema:
+        {
+            "pickup_zone":     int,   # NYC taxi zone, 1-265
+            "dropoff_zone":    int,
+            "requested_at":    str,   # ISO 8601 datetime
+            "passenger_count": int,
+        }
+    """
+    ts = datetime.fromisoformat(request["requested_at"])
+    pu, do = int(request["pickup_zone"]), int(request["dropoff_zone"])
+    h, dow = ts.hour, ts.weekday()
+    zone_pair_mean = _ZONE_PAIR_MEANS.get((pu, do), _GLOBAL_MEAN)
+    pu_cent, do_cent = _CENTROIDS.get(pu), _CENTROIDS.get(do)
+    haversine_km = _haversine(*pu_cent, *do_cent) if pu_cent and do_cent else 0.0
+    is_rush_hour = int((7 <= h < 9 and dow < 5) or (16 <= h < 19 and dow < 5))
+    is_weekend = int(dow >= 5)
+    is_airport = int(pu in _AIRPORT_ZONES or do in _AIRPORT_ZONES)
+    x = np.array(
+        [[pu, do, h, dow, ts.month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport]],
+        dtype=np.float32,
     )
-    
-    t0 = time.time()
-    model.fit(X_train, y_train)
-    print(f"Trained in {time.time() - t0:.0f}s")
-
-    preds = np.expm1(model.predict(X_dev))
-    print(f"Dev MAE: {np.mean(np.abs(preds - y_dev)):.2f}s")
-
-    with open(MODEL_PATH, "wb") as f: pickle.dump(model, f)
-    with open(METADATA_PATH, "wb") as f: pickle.dump(meta, f)
-
-if __name__ == "__main__":
-    main()
+    return float(math.expm1(_MODEL.predict(x)[0]))
