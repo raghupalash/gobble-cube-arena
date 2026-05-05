@@ -1,0 +1,99 @@
+Loading artifacts...
+Loading dev data...
+
+
+============================================================
+HYPOTHESIS 2: zone_pair_mean anchoring
+============================================================
+
+Long trips (>30min) that are under-predicted: 87,320
+
+  zone_pair_mean stats for these trips:
+    mean zone_pair_mean:  1715.7s
+    mean y_pred:          2025.8s
+    mean y_true:          2796.8s
+
+  How far does the model deviate from zone_pair_mean?
+    mean(y_pred - zone_pair_mean): +310.1s
+    median(y_pred - zone_pair_mean): +340.2s
+
+  How far is y_true from zone_pair_mean?
+    mean(y_true - zone_pair_mean):  +1081.1s
+    median(y_true - zone_pair_mean): +971.2s
+
+  Anchoring ratio (how much of the gap does model close?):
+    True is 1081.1s above zone_pair_mean
+    Model moves 310.1s above zone_pair_mean
+    Model closes 28.7% of the gap
+
+  Anchoring by duration bucket:
+    30-60min: true is +843s above zpm, model moves +219s (26.0% of gap)
+    1-2hr: true is +2074s above zpm, model moves +733s (35.4% of gap)
+    >2hr: true is +6437s above zpm, model moves +588s (9.1% of gap)
+
+
+============================================================
+HYPOTHESIS 3: Structurally high-variance routes
+============================================================
+
+Loading training data (1M sample)...
+
+  Overall CV distribution across zone pairs (min 20 trips):
+    P25: CV=0.29
+    P50: CV=0.34
+    P75: CV=0.41
+    P90: CV=0.53
+    P95: CV=0.65
+
+  Top 20 most frequently under-predicted pairs (>600s miss) — their CV in training:
+ pickup_zone  dropoff_zone  n_bad       cv        mean         std    n
+         132           265    788 0.588218 2627.325444 1545.439353 1859
+         264           264    619 0.813488  985.207794  801.455165 7262
+         132           230    473 0.298615 3451.367758 1030.631552 2382
+         186           230    369 0.558237  821.594245  458.644679 2085
+         161           161    303 0.787744  410.751326  323.566994 1697
+          43           161    278 0.527625  785.314117  414.351020 1353
+         164           161    275 0.560240  576.962340  323.237282 1487
+         132           132    258 1.869374  575.516264 1075.854887 1199
+         237           161    257 0.510845  614.031299  313.674879 3195
+         163           161    240 0.600335  496.112524  297.833839 1573
+         138           230    238 0.327161 2433.606557  796.180681 2013
+         164           230    237 0.532680  736.870705  392.516488 1106
+         230           132    235 0.303690 3411.235764 1035.958355 1001
+         132            48    234 0.301630 3498.458586 1055.240938 1485
+         186           161    231 0.517007  854.235772  441.645570 1968
+         230           230    229 0.909611  459.087736  417.591456 1060
+         163           230    223 0.683791  546.720736  373.842650 1196
+         161           230    219 0.542738  599.560941  325.404381 1403
+         230           161    201 0.661302  527.723265  348.984488 1225
+         162           161    199 0.604759  527.715221  319.140703 1222
+
+  Mean CV of worst under-predicted pairs: 0.62
+  Mean CV of all pairs (min 20 trips):    0.38
+
+
+============================================================
+HYPOTHESIS 4: Long trip representation — train vs dev
+============================================================
+
+  Duration distribution — train (1M) vs dev:
+                  train_1M%   dev%  dev_vs_train_ratio
+duration_seconds                                      
+<5min                 10.54  11.42                1.08
+5-10min               26.39  26.19                0.99
+10-20min              36.48  34.70                0.95
+20-30min              14.64  15.26                1.04
+30-60min              10.36  10.64                1.03
+1-2hr                  1.57   1.75                1.11
+>2hr                   0.02   0.03                1.50
+
+  Absolute counts:
+                  train_1M     dev
+duration_seconds                  
+<5min               105373  140631
+5-10min             263889  322398
+10-20min            364755  427139
+20-30min            146418  187840
+30-60min            103598  130922
+1-2hr                15732   21602
+>2hr                   235     379
