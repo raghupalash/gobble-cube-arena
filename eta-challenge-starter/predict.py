@@ -20,6 +20,7 @@ _ZONE_PAIR_MEANS_PATH = Path(__file__).parent / "zone_pair_means.pkl"
 _ZONE_CENTROIDS_PATH = Path(__file__).parent / "data" / "zone_centroids.csv"
 
 _AIRPORT_ZONES = {1, 132, 138}  # EWR, JFK, LGA
+_UNKNOWN_ZONES = {264, 265}
 
 with open(_MODEL_PATH, "rb") as _f:
     _MODEL = pickle.load(_f)
@@ -37,7 +38,7 @@ _CENTROIDS: dict = {row.zone_id: (row.latitude, row.longitude) for row in _df.it
 _R = 6371.0
 
 # Feature order must match baseline.py:
-#   pickup_zone, dropoff_zone, hour, dow, month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport
+#   pickup_zone, dropoff_zone, hour, dow, month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport, is_unknown_zone
 
 
 def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -67,8 +68,9 @@ def predict(request: dict) -> float:
     is_rush_hour = int((7 <= h < 9 and dow < 5) or (16 <= h < 19 and dow < 5))
     is_weekend = int(dow >= 5)
     is_airport = int(pu in _AIRPORT_ZONES or do in _AIRPORT_ZONES)
+    is_unknown_zone = int(pu in _UNKNOWN_ZONES or do in _UNKNOWN_ZONES)
     x = np.array(
-        [[pu, do, h, dow, ts.month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport]],
+        [[pu, do, h, dow, ts.month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport, is_unknown_zone]],
         dtype=np.float32,
     )
     return float(math.expm1(_MODEL.predict(x)[0]))

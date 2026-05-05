@@ -30,6 +30,7 @@ All runs use 1M sample. See Full Training Runs table for 37M results.
 | Exp 10: + log1p target transform (flags + 800/6) | 282.3s | -10.6s | 280.2s | -9.3s |
 | Exp 11: + filter bad labels <60s (on top of Exp 10) | 282.8s | +0.5s | 280.7s | +0.5s |
 | Exp 12: + zone_pair_hour_mean (min count=30) | 282.8s | +0.0s | 280.8s | +0.1s |
+| Exp 13: + is_unknown_zone flag (zones 264/265) | 282.2s | -0.1s | 280.1s | -0.1s |
 
 ## Full Training Runs (37M rows)
 
@@ -140,4 +141,12 @@ All runs use 1M sample. See Full Training Runs table for 37M results.
 **Approach:** Drop rows where `duration_seconds < 60` before training.
 
 **Result:** grade.py 282.3s → 282.8s (+0.5s), full dev +0.5s. **Worse.** These rows may be legitimate very-short trips; removing them hurts generalization. Branch not merged.
+
+### Experiment 13 — Unknown zone flag (zones 264/265)
+
+**Hypothesis:** Zones 264 and 265 are out-of-bounds / unknown zones and are 9–18x overrepresented in the worst 5000 errors. These trips get no pair signal (zone_pair_mean falls back to global_mean). A binary flag gives XGBoost a dedicated signal to adjust its predictions for these structurally different trips.
+
+**Approach:** Add `is_unknown_zone = 1` when pickup or dropoff is in {264, 265}. One feature added to baseline.py and predict.py.
+
+**Result:** grade.py 282.3s → 282.2s (-0.1s), full dev 280.2s → 280.1s (-0.1s). Marginal gain — very few trips hit these zones so the signal impact is small. Merged to master.
 

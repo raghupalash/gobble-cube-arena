@@ -31,9 +31,10 @@ MODEL_PATH = Path(__file__).parent / "model.pkl"
 ZONE_PAIR_MEANS_PATH = Path(__file__).parent / "zone_pair_means.pkl"
 ZONE_CENTROIDS_PATH = DATA_DIR / "zone_centroids.csv"
 
-FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "zone_pair_mean", "haversine_km", "is_rush_hour", "is_weekend", "is_airport"]
+FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "zone_pair_mean", "haversine_km", "is_rush_hour", "is_weekend", "is_airport", "is_unknown_zone"]
 
 _AIRPORT_ZONES = {1, 132, 138}  # EWR, JFK, LGA
+_UNKNOWN_ZONES = {264, 265}  # out-of-bounds / unknown zones, 9-18x overrepresented in worst errors
 
 _R = 6371.0  # Earth radius in km
 
@@ -89,17 +90,22 @@ def engineer_features(
         df["pickup_zone"].astype(int).isin(_AIRPORT_ZONES) |
         df["dropoff_zone"].astype(int).isin(_AIRPORT_ZONES)
     ).astype("int8")
+    is_unknown_zone = (
+        df["pickup_zone"].astype(int).isin(_UNKNOWN_ZONES) |
+        df["dropoff_zone"].astype(int).isin(_UNKNOWN_ZONES)
+    ).astype("int8")
     return pd.DataFrame({
-        "pickup_zone":    df["pickup_zone"].astype("int32"),
-        "dropoff_zone":   df["dropoff_zone"].astype("int32"),
-        "hour":           hour.astype("int8"),
-        "dow":            dow.astype("int8"),
-        "month":          ts.dt.month.astype("int8"),
-        "zone_pair_mean": pair_mean,
-        "haversine_km":   hav,
-        "is_rush_hour":   is_rush_hour,
-        "is_weekend":     is_weekend,
-        "is_airport":     is_airport,
+        "pickup_zone":      df["pickup_zone"].astype("int32"),
+        "dropoff_zone":     df["dropoff_zone"].astype("int32"),
+        "hour":             hour.astype("int8"),
+        "dow":              dow.astype("int8"),
+        "month":            ts.dt.month.astype("int8"),
+        "zone_pair_mean":   pair_mean,
+        "haversine_km":     hav,
+        "is_rush_hour":     is_rush_hour,
+        "is_weekend":       is_weekend,
+        "is_airport":       is_airport,
+        "is_unknown_zone":  is_unknown_zone,
     })[FEATURES]
 
 
