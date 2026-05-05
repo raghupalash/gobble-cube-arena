@@ -121,5 +121,83 @@ def main():
         print(f"\n=== Short trips (<2min): {len(short):,} trips, MAE={short['abs_error'].mean():.1f}s ===")
         print(f"  Bias (pred-true): {short['residual'].mean():+.1f}s")
 
+    # =========================================================
+    # UNDER-PREDICTION FOCUSED ANALYSIS
+    # =========================================================
+    under = dev[dev["residual"] < 0].copy()
+    print(f"\n\n{'='*60}")
+    print(f"UNDER-PREDICTION ANALYSIS  (n={len(under):,}, {len(under)/len(dev)*100:.1f}% of dev)")
+    print(f"{'='*60}")
+    print(f"  Mean under-prediction magnitude: {under['residual'].mean():+.1f}s")
+    print(f"  Median under-prediction magnitude: {under['residual'].median():+.1f}s")
+
+    # --- Under-prediction by true duration bucket ---
+    print(f"\n=== Under-predictions by true trip duration ===")
+    bins   = [0, 300, 600, 1200, 1800, 3600, 7200, 999999]
+    labels = ["<5min", "5-10min", "10-20min", "20-30min", "30-60min", "1-2hr", ">2hr"]
+    dev["dur_bucket"] = pd.cut(dev["duration_seconds"], bins=bins, labels=labels)
+    under["dur_bucket"] = dev.loc[under.index, "dur_bucket"]
+    bucket_stats = under.groupby("dur_bucket", observed=True).agg(
+        n=("residual", "count"),
+        mean_under=("residual", "mean"),
+        median_under=("residual", "median"),
+    ).round(1)
+    bucket_stats["pct_of_under"] = (bucket_stats["n"] / len(under) * 100).round(1)
+    # overall share of each bucket
+    overall_bucket = dev.groupby("dur_bucket", observed=True).size()
+    bucket_stats["pct_of_bucket_that_unders"] = (
+        bucket_stats["n"] / overall_bucket * 100
+    ).round(1)
+    print(bucket_stats.to_string())
+
+    # --- Under-predictions by hour ---
+    print(f"\n=== Under-prediction rate and magnitude by hour ===")
+    hour_stats = dev.groupby("hour").apply(
+        lambda g: pd.Series({
+            "n_under": (g["residual"] < 0).sum(),
+            "under_rate%": (g["residual"] < 0).mean() * 100,
+            "mean_under": g.loc[g["residual"] < 0, "residual"].mean() if (g["residual"] < 0).any() else 0,
+            "mae": g["abs_error"].mean(),
+        })
+    ).round(1)
+    print(hour_stats.to_string())
+
+    # --- Under-predictions by day of week ---
+    print(f"\n=== Under-prediction rate and magnitude by day of week ===")
+    dow_stats = dev.groupby("dow").apply(
+        lambda g: pd.Series({
+            "n_under": (g["residual"] < 0).sum(),
+            "under_rate%": (g["residual"] < 0).mean() * 100,
+            "mean_under": g.loc[g["residual"] < 0, "residual"].mean() if (g["residual"] < 0).any() else 0,
+        })
+    ).round(1)
+    dow_stats.index = [dow_names[i] for i in dow_stats.index]
+    print(dow_stats.to_string())
+
+    # --- Top zone pairs by systematic under-prediction (bias) ---
+    print(f"\n=== Top 20 zone pairs by systematic under-prediction (min 20 trips, sorted by bias) ===")
+    pair_bias = dev.groupby(["pickup_zone", "dropoff_zone"]).agg(
+        n=("residual", "count"),
+        bias=("residual", "mean"),
+        mae=("abs_error", "mean"),
+        n_under=("residual", lambda x: (x < 0).sum()),
+        mean_under=("residual", lambda x: x[x < 0].mean() if (x < 0).any() else 0),
+    ).query("n >= 20").nsmallest(20, "bias").round(1)
+    pair_bias["under%"] = (pair_bias["n_under"] / pair_bias["n"] * 100).round(1)
+    print(pair_bias.to_string())
+
+    # --- Under-prediction magnitude distribution ---
+    print(f"\n=== Under-prediction magnitude percentiles ===")
+    for p in [10, 25, 50, 75, 90, 95, 99]:
+        print(f"  P{p:2d}: {np.percentile(under['residual'], p):+.0f}s")
+
+    # --- Hour lift for under-predictions specifically ---
+    print(f"\n=== Hour lift: under-predictions vs overall trip distribution ===")
+    overall_hour_pct = dev.groupby("hour").size() / len(dev) * 100
+    under_hour_pct = under.groupby("hour").size() / len(under) * 100
+    h_lift = pd.DataFrame({"overall%": overall_hour_pct, "under%": under_hour_pct}).fillna(0).round(1)
+    h_lift["lift"] = (h_lift["under%"] / h_lift["overall%"]).round(2)
+    print(h_lift[h_lift["lift"] > 1.2].to_string())
+
 if __name__ == "__main__":
     main()
