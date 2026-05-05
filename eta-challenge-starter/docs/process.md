@@ -40,8 +40,9 @@ All runs use 1M sample. See Full Training Runs table for 37M results.
 |---|---|---|---|---|
 | 7 features, 400/8 (Exp 5 master) | 292.9s | 291.2s | ~38 min | intermediate baseline |
 | flags + 800/6, no log1p (exp/flags) | 293.4s | 292.2s | ~34 min | not merged |
-| **flags + log1p + 800/6 (current master)** | **273.1s** | **271.5s** | ~38 min | **merged to master** |
+| flags + log1p + 800/6 | 273.1s | 271.5s | ~38 min | superseded |
 | zone_pair_hour_mean (min count=30) on top of master (exp/zone-pair-hour-guarded) | 272.1s | 270.7s | ~26 min | pending merge |
+| **+ is_unknown_zone flag (current master)** | **272.7s** | **271.1s** | ~19 min | **merged to master** |
 
 ---
 
