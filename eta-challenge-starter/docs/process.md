@@ -43,7 +43,8 @@ All runs use 1M sample. See Full Training Runs table for 37M results.
 | flags + 800/6, no log1p (exp/flags) | 293.4s | 292.2s | ~34 min | not merged |
 | flags + log1p + 800/6 | 273.1s | 271.5s | ~38 min | superseded |
 | zone_pair_hour_mean (min count=30) on top of master (exp/zone-pair-hour-guarded) | 272.1s | 270.7s | ~26 min | pending merge |
-| **+ is_unknown_zone flag (current master)** | **272.7s** | **271.1s** | ~19 min | **merged to master** |
+| + is_unknown_zone flag | 272.7s | 271.1s | ~19 min | superseded |
+| **+ zone_pair_hour_mean (min count=30) + is_unknown_zone (current master)** | **272.3s** | **270.9s** | ~20 min | **merged to master** |
 
 ---
 
