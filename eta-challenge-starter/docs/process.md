@@ -29,6 +29,7 @@ All runs use 1M sample. See Full Training Runs table for 37M results.
 | Exp 9b: flags + n_estimators=800, max_depth=8 | 303.3s | +1.0s | 301.4s | +1.0s |
 | Exp 10: + log1p target transform (flags + 800/6) | 282.3s | -10.6s | 280.2s | -9.3s |
 | Exp 11: + filter bad labels <60s (on top of Exp 10) | 282.8s | +0.5s | 280.7s | +0.5s |
+| Exp 12: + zone_pair_hour_mean (min count=30) | 282.8s | +0.0s | 280.8s | +0.1s |
 
 ## Full Training Runs (37M rows)
 
@@ -39,6 +40,7 @@ All runs use 1M sample. See Full Training Runs table for 37M results.
 | 7 features, 400/8 (Exp 5 master) | 292.9s | 291.2s | ~38 min | intermediate baseline |
 | flags + 800/6, no log1p (exp/flags) | 293.4s | 292.2s | ~34 min | not merged |
 | **flags + log1p + 800/6 (current master)** | **273.1s** | **271.5s** | ~38 min | **merged to master** |
+| zone_pair_hour_mean (min count=30) on top of master (exp/zone-pair-hour-guarded) | 272.1s | 270.7s | ~26 min | pending merge |
 
 ---
 
