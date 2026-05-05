@@ -31,6 +31,7 @@ All runs use 1M sample. See Full Training Runs table for 37M results.
 | Exp 11: + filter bad labels <60s (on top of Exp 10) | 282.8s | +0.5s | 280.7s | +0.5s |
 | Exp 12: + zone_pair_hour_mean (min count=30) | 282.8s | +0.0s | 280.8s | +0.1s |
 | Exp 13: + is_unknown_zone flag (zones 264/265) | 282.2s | -0.1s | 280.1s | -0.1s |
+| Exp 15: + zone_pair_hour_mean (min count=30, merged with exp13) | 282.4s | +0.2s | 280.4s | +0.3s |
 
 ## Full Training Runs (37M rows)
 
