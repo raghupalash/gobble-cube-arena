@@ -151,3 +151,27 @@ All runs use 1M sample. See Full Training Runs table for 37M results.
 
 **Result:** grade.py 282.3s → 282.2s (-0.1s), full dev 280.2s → 280.1s (-0.1s). Marginal gain — very few trips hit these zones so the signal impact is small. Merged to master.
 
+### Experiment 14 — Quantile regression (branches: exp/quantile-37M, exp/quantile-raw-target)
+
+**Hypothesis:** 80% of the worst 5000 errors are under-predictions, almost all on long trips (>30min). Under-prediction diagnosis showed zone_pair_mean anchoring is severe — the model closes only 28.7% of the gap between zone_pair_mean and the true duration for long trips. Quantile regression (predicting the 55th–70th percentile instead of the mean) should shift predictions upward and reduce under-prediction on long trips.
+
+**Approach:** Swept quantile_alpha values [0.50, 0.55, 0.60, 0.65, 0.70] on 1M sample with log1p target. Also tested α=0.55 without log1p (raw duration target) to check whether log1p was suppressing the quantile shift.
+
+**Results (1M sample):**
+
+| Alpha | Dev MAE | Δ vs baseline |
+|---|---|---|
+| 0.50 (baseline, squarederror) | 280.1s | — |
+| 0.55 (log1p + quantile) | 291.3s | +11.2s |
+| 0.60 | 308.0s | +28.0s |
+| 0.65 | 329.3s | +49.2s |
+| 0.70 | 355.0s | +75.0s |
+| 0.55 (raw target, no log1p) | 291.0s | +10.9s |
+
+**Worse across the board.** Not merged.
+
+**Root cause analysis:**
+- MAE penalises over- and under-prediction equally. Shifting predictions upward reduces the large misses on long trips but over-predicts every short/medium trip by a similar amount. Long trips are a small fraction of dev (~12%), so the MAE cost of over-predicting the majority outweighs the gain on the tail.
+- Removing log1p made no difference (+10.9s vs +11.2s) — log compression was not suppressing the quantile shift. The problem is structural: trips that will be unusually long look identical in feature space to trips that will be normal. The model has no signal to distinguish them, so any upward shift hurts calibrated predictions across the board.
+- Quantile regression is only useful here if we have features that correlate with which specific trips will be long (e.g. real-time traffic, weather). Without those, it just miscalibrates the model.
+
