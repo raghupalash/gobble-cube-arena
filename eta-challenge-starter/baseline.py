@@ -32,7 +32,7 @@ ZONE_PAIR_MEANS_PATH = Path(__file__).parent / "zone_pair_means.pkl"
 ZONE_PAIR_HOUR_MEANS_PATH = Path(__file__).parent / "zone_pair_hour_means.pkl"
 ZONE_CENTROIDS_PATH = DATA_DIR / "zone_centroids.csv"
 
-FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "zone_pair_mean", "haversine_km", "is_rush_hour", "is_weekend", "is_airport", "is_unknown_zone", "zone_pair_hour_mean", "passenger_count"]
+FEATURES = ["pickup_zone", "dropoff_zone", "hour", "dow", "month", "zone_pair_mean", "haversine_km", "is_rush_hour", "is_weekend", "is_airport", "is_unknown_zone", "zone_pair_hour_mean"]
 
 MIN_BUCKET_COUNT = 30
 
@@ -134,7 +134,6 @@ def engineer_features(
         "is_airport":           is_airport,
         "is_unknown_zone":      is_unknown_zone,
         "zone_pair_hour_mean":  pair_hour_mean,
-        "passenger_count":      df["passenger_count"].clip(1, 6).astype("int8"),
     })[FEATURES]
 
 
