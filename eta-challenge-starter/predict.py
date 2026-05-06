@@ -42,7 +42,7 @@ _CENTROIDS: dict = {row.zone_id: (row.latitude, row.longitude) for row in _df.it
 _R = 6371.0
 
 # Feature order must match baseline.py:
-#   pickup_zone, dropoff_zone, hour, dow, month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport, is_unknown_zone, zone_pair_hour_mean
+#   pickup_zone, dropoff_zone, hour, dow, month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport, is_unknown_zone, zone_pair_hour_mean, passenger_count
 
 
 def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -74,8 +74,9 @@ def predict(request: dict) -> float:
     is_weekend = int(dow >= 5)
     is_airport = int(pu in _AIRPORT_ZONES or do in _AIRPORT_ZONES)
     is_unknown_zone = int(pu in _UNKNOWN_ZONES or do in _UNKNOWN_ZONES)
+    passenger_count = min(max(int(request["passenger_count"]), 1), 6)
     x = np.array(
-        [[pu, do, h, dow, ts.month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport, is_unknown_zone, zone_pair_hour_mean]],
+        [[pu, do, h, dow, ts.month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport, is_unknown_zone, zone_pair_hour_mean, passenger_count]],
         dtype=np.float32,
     )
     return float(math.expm1(_MODEL.predict(x)[0]))
