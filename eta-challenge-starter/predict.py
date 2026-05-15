@@ -25,8 +25,6 @@ _UNKNOWN_ZONES = {264, 265}
 
 with open(_MODEL_PATH, "rb") as _f:
     _MODEL = pickle.load(_f)
-if hasattr(_MODEL, "get_booster"):
-    _MODEL.get_booster().feature_names = None
 
 with open(_ZONE_PAIR_MEANS_PATH, "rb") as _f:
     _zp = pickle.load(_f)
@@ -75,8 +73,7 @@ def predict(request: dict) -> float:
     is_airport = int(pu in _AIRPORT_ZONES or do in _AIRPORT_ZONES)
     is_unknown_zone = int(pu in _UNKNOWN_ZONES or do in _UNKNOWN_ZONES)
     pair_speed_kmh = haversine_km * 3600.0 / zone_pair_mean if zone_pair_mean > 0 else 0.0
-    x = np.array(
-        [[pu, do, h, dow, ts.month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport, is_unknown_zone, zone_pair_hour_mean, pair_speed_kmh]],
-        dtype=np.float32,
+    x = pd.DataFrame([[pu, do, h, dow, ts.month, zone_pair_mean, haversine_km, is_rush_hour, is_weekend, is_airport, is_unknown_zone, zone_pair_hour_mean, pair_speed_kmh]],
+        columns=["pickup_zone", "dropoff_zone", "hour", "dow", "month", "zone_pair_mean", "haversine_km", "is_rush_hour", "is_weekend", "is_airport", "is_unknown_zone", "zone_pair_hour_mean", "pair_speed_kmh"],
     )
     return float(math.expm1(_MODEL.predict(x)[0]))

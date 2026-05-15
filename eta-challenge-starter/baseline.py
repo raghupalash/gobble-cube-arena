@@ -24,7 +24,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import xgboost as xgb
+import lightgbm as lgb
 
 DATA_DIR = Path(__file__).parent / "data"
 MODEL_PATH = Path(__file__).parent / "model.pkl"
@@ -181,19 +181,20 @@ def main() -> None:
     X_dev = engineer_features(dev, zone_pair_means, zone_pair_hour_means, global_mean, centroids)
     y_dev = dev["duration_seconds"].to_numpy()
 
-    print("\nTraining XGBoost...")
-    model = xgb.XGBRegressor(
+    print("\nTraining LightGBM...")
+    model = lgb.LGBMRegressor(
         n_estimators=800,
         max_depth=6,
+        num_leaves=63,
         learning_rate=0.08,
         subsample=0.8,
         colsample_bytree=0.8,
-        tree_method="hist",
         n_jobs=-1,
         random_state=42,
+        verbose=-1,
     )
     t0 = time.time()
-    model.fit(X_train, y_train, verbose=False)
+    model.fit(X_train, y_train)
     print(f"  trained in {time.time() - t0:.0f}s")
 
     preds = np.expm1(model.predict(X_dev))
