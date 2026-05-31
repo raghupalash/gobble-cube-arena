@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh anton *)",
+      "Bash(kill 40540 40533 40531 22941)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)"
+    ]
+  }
+}

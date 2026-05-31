@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh repo *)",
+      "Bash(python baseline.py)",
+      "Bash(python grade.py)",
+      "Bash(git commit -m ' *)",
+      "Bash(echo \"\")",
+      "Bash(cat)",
+      "Bash(ssh anton *)",
+      "Bash(git *)",
+      "Bash(python analyze_errors.py)",
+      "Bash(ssh palash@185.230.138.179 \"cat /tmp/error_analysis_37M.log\")"
+    ]
+  }
+}

@@ -121,5 +121,194 @@ def main():
         print(f"\n=== Short trips (<2min): {len(short):,} trips, MAE={short['abs_error'].mean():.1f}s ===")
         print(f"  Bias (pred-true): {short['residual'].mean():+.1f}s")
 
+    # =========================================================
+    # UNDER-PREDICTION FOCUSED ANALYSIS
+    # =========================================================
+    under = dev[dev["residual"] < 0].copy()
+    print(f"\n\n{'='*60}")
+    print(f"UNDER-PREDICTION ANALYSIS  (n={len(under):,}, {len(under)/len(dev)*100:.1f}% of dev)")
+    print(f"{'='*60}")
+    print(f"  Mean under-prediction magnitude: {under['residual'].mean():+.1f}s")
+    print(f"  Median under-prediction magnitude: {under['residual'].median():+.1f}s")
+
+    # --- Under-prediction by true duration bucket ---
+    print(f"\n=== Under-predictions by true trip duration ===")
+    bins   = [0, 300, 600, 1200, 1800, 3600, 7200, 999999]
+    labels = ["<5min", "5-10min", "10-20min", "20-30min", "30-60min", "1-2hr", ">2hr"]
+    dev["dur_bucket"] = pd.cut(dev["duration_seconds"], bins=bins, labels=labels)
+    under["dur_bucket"] = dev.loc[under.index, "dur_bucket"]
+    bucket_stats = under.groupby("dur_bucket", observed=True).agg(
+        n=("residual", "count"),
+        mean_under=("residual", "mean"),
+        median_under=("residual", "median"),
+    ).round(1)
+    bucket_stats["pct_of_under"] = (bucket_stats["n"] / len(under) * 100).round(1)
+    # overall share of each bucket
+    overall_bucket = dev.groupby("dur_bucket", observed=True).size()
+    bucket_stats["pct_of_bucket_that_unders"] = (
+        bucket_stats["n"] / overall_bucket * 100
+    ).round(1)
+    print(bucket_stats.to_string())
+
+    # --- Under-predictions by hour ---
+    print(f"\n=== Under-prediction rate and magnitude by hour ===")
+    hour_stats = dev.groupby("hour").apply(
+        lambda g: pd.Series({
+            "n_under": (g["residual"] < 0).sum(),
+            "under_rate%": (g["residual"] < 0).mean() * 100,
+            "mean_under": g.loc[g["residual"] < 0, "residual"].mean() if (g["residual"] < 0).any() else 0,
+            "mae": g["abs_error"].mean(),
+        })
+    ).round(1)
+    print(hour_stats.to_string())
+
+    # --- Under-predictions by day of week ---
+    print(f"\n=== Under-prediction rate and magnitude by day of week ===")
+    dow_stats = dev.groupby("dow").apply(
+        lambda g: pd.Series({
+            "n_under": (g["residual"] < 0).sum(),
+            "under_rate%": (g["residual"] < 0).mean() * 100,
+            "mean_under": g.loc[g["residual"] < 0, "residual"].mean() if (g["residual"] < 0).any() else 0,
+        })
+    ).round(1)
+    dow_stats.index = [dow_names[i] for i in dow_stats.index]
+    print(dow_stats.to_string())
+
+    # --- Top zone pairs by systematic under-prediction (bias) ---
+    print(f"\n=== Top 20 zone pairs by systematic under-prediction (min 20 trips, sorted by bias) ===")
+    pair_bias = dev.groupby(["pickup_zone", "dropoff_zone"]).agg(
+        n=("residual", "count"),
+        bias=("residual", "mean"),
+        mae=("abs_error", "mean"),
+        n_under=("residual", lambda x: (x < 0).sum()),
+        mean_under=("residual", lambda x: x[x < 0].mean() if (x < 0).any() else 0),
+    ).query("n >= 20").nsmallest(20, "bias").round(1)
+    pair_bias["under%"] = (pair_bias["n_under"] / pair_bias["n"] * 100).round(1)
+    print(pair_bias.to_string())
+
+    # --- Under-prediction magnitude distribution ---
+    print(f"\n=== Under-prediction magnitude percentiles ===")
+    for p in [10, 25, 50, 75, 90, 95, 99]:
+        print(f"  P{p:2d}: {np.percentile(under['residual'], p):+.0f}s")
+
+    # --- Hour lift for under-predictions specifically ---
+    print(f"\n=== Hour lift: under-predictions vs overall trip distribution ===")
+    overall_hour_pct = dev.groupby("hour").size() / len(dev) * 100
+    under_hour_pct = under.groupby("hour").size() / len(under) * 100
+    h_lift = pd.DataFrame({"overall%": overall_hour_pct, "under%": under_hour_pct}).fillna(0).round(1)
+    h_lift["lift"] = (h_lift["under%"] / h_lift["overall%"]).round(2)
+    print(h_lift[h_lift["lift"] > 1.2].to_string())
+
+    # =========================================================
+    # OVER-PREDICTION FOCUSED ANALYSIS
+    # =========================================================
+    over = dev[dev["residual"] > 0].copy()
+    print(f"\n\n{'='*60}")
+    print(f"OVER-PREDICTION ANALYSIS  (n={len(over):,}, {len(over)/len(dev)*100:.1f}% of dev)")
+    print(f"{'='*60}")
+    print(f"  Mean over-prediction magnitude:   {over['residual'].mean():+.1f}s")
+    print(f"  Median over-prediction magnitude: {over['residual'].median():+.1f}s")
+
+    # --- Over-prediction by true duration bucket ---
+    print(f"\n=== Over-predictions by true trip duration ===")
+    over["dur_bucket"] = dev.loc[over.index, "dur_bucket"]
+    over_bucket_stats = over.groupby("dur_bucket", observed=True).agg(
+        n=("residual", "count"),
+        mean_over=("residual", "mean"),
+        median_over=("residual", "median"),
+    ).round(1)
+    over_bucket_stats["pct_of_over"] = (over_bucket_stats["n"] / len(over) * 100).round(1)
+    overall_bucket = dev.groupby("dur_bucket", observed=True).size()
+    over_bucket_stats["pct_of_bucket_that_overs"] = (
+        over_bucket_stats["n"] / overall_bucket * 100
+    ).round(1)
+    print(over_bucket_stats.to_string())
+
+    # --- Over-predictions by hour ---
+    print(f"\n=== Over-prediction rate and magnitude by hour ===")
+    over_hour_stats = dev.groupby("hour").apply(
+        lambda g: pd.Series({
+            "n_over": (g["residual"] > 0).sum(),
+            "over_rate%": (g["residual"] > 0).mean() * 100,
+            "mean_over": g.loc[g["residual"] > 0, "residual"].mean() if (g["residual"] > 0).any() else 0,
+            "mae": g["abs_error"].mean(),
+        })
+    ).round(1)
+    print(over_hour_stats.to_string())
+
+    # --- Over-predictions by day of week ---
+    print(f"\n=== Over-prediction rate and magnitude by day of week ===")
+    over_dow_stats = dev.groupby("dow").apply(
+        lambda g: pd.Series({
+            "n_over": (g["residual"] > 0).sum(),
+            "over_rate%": (g["residual"] > 0).mean() * 100,
+            "mean_over": g.loc[g["residual"] > 0, "residual"].mean() if (g["residual"] > 0).any() else 0,
+        })
+    ).round(1)
+    over_dow_stats.index = [dow_names[i] for i in over_dow_stats.index]
+    print(over_dow_stats.to_string())
+
+    # --- Top zone pairs by systematic over-prediction (bias) ---
+    print(f"\n=== Top 20 zone pairs by systematic over-prediction (min 20 trips, sorted by bias) ===")
+    over_pair_bias = dev.groupby(["pickup_zone", "dropoff_zone"]).agg(
+        n=("residual", "count"),
+        bias=("residual", "mean"),
+        mae=("abs_error", "mean"),
+        n_over=("residual", lambda x: (x > 0).sum()),
+        mean_over=("residual", lambda x: x[x > 0].mean() if (x > 0).any() else 0),
+    ).query("n >= 20").nlargest(20, "bias").round(1)
+    over_pair_bias["over%"] = (over_pair_bias["n_over"] / over_pair_bias["n"] * 100).round(1)
+    print(over_pair_bias.to_string())
+
+    # --- Over-prediction magnitude distribution ---
+    print(f"\n=== Over-prediction magnitude percentiles ===")
+    for p in [10, 25, 50, 75, 90, 95, 99]:
+        print(f"  P{p:2d}: {np.percentile(over['residual'], p):+.0f}s")
+
+    # --- Hour lift for over-predictions specifically ---
+    print(f"\n=== Hour lift: over-predictions vs overall trip distribution ===")
+    over_hour_pct = over.groupby("hour").size() / len(over) * 100
+    o_lift = pd.DataFrame({"overall%": overall_hour_pct, "over%": over_hour_pct}).fillna(0).round(1)
+    o_lift["lift"] = (o_lift["over%"] / o_lift["overall%"]).round(2)
+    print(o_lift[o_lift["lift"] > 1.2].to_string())
+
+    # =========================================================
+    # SUMMARY: BIAS OVERVIEW
+    # =========================================================
+    print(f"\n\n{'='*60}")
+    print("BIAS SUMMARY")
+    print(f"{'='*60}")
+    print(f"  Under-predictions: {len(under):,} ({len(under)/len(dev)*100:.1f}%)  mean residual: {under['residual'].mean():+.1f}s")
+    print(f"  Over-predictions:  {len(over):,} ({len(over)/len(dev)*100:.1f}%)  mean residual: {over['residual'].mean():+.1f}s")
+    print(f"  Net bias (mean residual all dev): {residuals.mean():+.1f}s")
+
+    # =========================================================
+    # 132 <-> 265 DEEP DIVE (JFK <-> unknown zone)
+    # =========================================================
+    print(f"\n\n{'='*60}")
+    print("132 <-> 265 PAIR DEEP DIVE  (JFK <-> unknown/OOB zone)")
+    print(f"{'='*60}")
+    for pu, do in [(132, 265), (265, 132)]:
+        mask = (dev["pickup_zone"] == pu) & (dev["dropoff_zone"] == do)
+        sub = dev[mask]
+        if len(sub) == 0:
+            print(f"  ({pu}->{do}): no trips in dev")
+            continue
+        print(f"\n  ({pu}->{do}): n={len(sub):,}, MAE={sub['abs_error'].mean():.1f}s, bias={sub['residual'].mean():+.1f}s")
+        print(f"    True duration — p10={sub['duration_seconds'].quantile(0.10):.0f}s  p25={sub['duration_seconds'].quantile(0.25):.0f}s  p50={sub['duration_seconds'].quantile(0.50):.0f}s  p75={sub['duration_seconds'].quantile(0.75):.0f}s  p90={sub['duration_seconds'].quantile(0.90):.0f}s")
+        print(f"    Predicted    — p10={sub['y_pred'].quantile(0.10):.0f}s  p25={sub['y_pred'].quantile(0.25):.0f}s  p50={sub['y_pred'].quantile(0.50):.0f}s  p75={sub['y_pred'].quantile(0.75):.0f}s  p90={sub['y_pred'].quantile(0.90):.0f}s")
+        print(f"    Under-predictions: {(sub['residual'] < 0).sum():,} ({(sub['residual'] < 0).mean()*100:.1f}%)")
+        zpm = zp_means.get((pu, do), global_mean)
+        print(f"    zone_pair_mean for this pair: {zpm:.1f}s")
+        # Check how many hour buckets exist for this pair
+        hour_hits = [(h, hour_means[(pu, do, h)]) for h in range(24) if (pu, do, h) in hour_means]
+        print(f"    zone_pair_hour_mean buckets populated: {len(hour_hits)}/24")
+        if hour_hits:
+            print(f"    hour buckets: " + ", ".join(f"{h}h={v:.0f}s" for h, v in sorted(hour_hits)))
+        # MAE by hour for this pair
+        print(f"    MAE by hour:")
+        by_hour = sub.groupby("hour").agg(n=("abs_error","count"), mae=("abs_error","mean"), bias=("residual","mean")).round(1)
+        print(by_hour.to_string())
+
 if __name__ == "__main__":
     main()
